@@ -51,7 +51,7 @@ function getWeekday(dateStr){
     return arr[d.getDay()];
 }
 
-/* 球場 */
+/* ===== 球場清單 ===== */
 const courses = [
 { region:"台北市 / 新北市", name:"翡翠高爾夫球場", city:"新北市" },
 { region:"台北市 / 新北市", name:"黃金海岸（北海）高爾夫球場", city:"新北市" },
@@ -107,7 +107,7 @@ const courses = [
 { region:"嘉義 / 台南 / 高雄 / 屏東", name:"屏東高爾夫球場", city:"屏東縣" }
 ];
 
-/* 核心解析 */
+/* ===== 天氣 API 解析 ===== */
 async function getWeeklyWeather(city){
 
     city = normalizeCity(city);
@@ -132,7 +132,6 @@ async function getWeeklyWeather(city){
         let daily = {};
 
         weather.forEach((w,i)=>{
-
             const date = w.StartTime.substring(0,10);
 
             if(!daily[date]){
@@ -164,43 +163,100 @@ async function getWeeklyWeather(city){
         return {forecasts};
 
     }catch(e){
-        console.log(e);
         return {error:true};
     }
 }
 
-/* UI */
+/* ===== 區域按鈕 ===== */
+function createRegionButtons(){
+
+    const regions = ["全部", ...new Set(courses.map(c=>c.region))];
+    const container = document.getElementById("regionButtons");
+    container.innerHTML = "";
+
+    regions.forEach(region=>{
+        const btn = document.createElement("button");
+        btn.innerText = region;
+        btn.onclick = () => filterRegion(region);
+        container.appendChild(btn);
+    });
+
+    container.firstChild.classList.add("active");
+}
+
+function filterRegion(selected){
+
+    const buttons = document.querySelectorAll(".region-buttons button");
+    buttons.forEach(btn=>{
+        btn.classList.remove("active");
+        if(btn.innerText === selected){
+            btn.classList.add("active");
+        }
+    });
+
+    renderCourses(selected);
+}
+
+/* ===== UI ===== */
 let weatherCache={};
 
 async function loadCourses(){
+
     const cities=[...new Set(courses.map(c=>c.city))];
-    await Promise.all(cities.map(async city=>{
-        weatherCache[city]=await getWeeklyWeather(city);
-    }));
-    renderCourses();
+
+    await Promise.all(
+        cities.map(async city=>{
+            weatherCache[city]=await getWeeklyWeather(city);
+        })
+    );
+
+    createRegionButtons();
+    renderCourses("全部");
 }
 
-function renderCourses(){
+function renderCourses(filter="全部"){
+
     let html="";
-    courses.forEach(course=>{
-        const w=weatherCache[course.city];
-        if(!w || w.error){
-            html+=`<div class="card"><strong>${course.name}</strong><div class="error">讀取失敗</div></div>`;
-        }else{
-            let forecastHTML="";
-            w.forecasts.forEach(f=>{
-                const rainClass = f.pop>60?"rain-high":"";
-                forecastHTML+=`
-                <div class="day-block ${rainClass}">
-                ${f.date}（${f.weekday}）｜
-                ${f.weather}｜
-                ${f.minT}°C-${f.maxT}°C｜
-                降雨 ${f.pop}%
-                </div>`;
-            });
-            html+=`<div class="card"><strong>${course.name}</strong>${forecastHTML}</div>`;
-        }
-    });
+
+    const filteredCourses = filter==="全部"
+        ? courses
+        : courses.filter(c=>c.region===filter);
+
+    const grouped = filteredCourses.reduce((acc,course)=>{
+        if(!acc[course.region]) acc[course.region]=[];
+        acc[course.region].push(course);
+        return acc;
+    },{});
+
+    for(const region in grouped){
+
+        html+=`<div class="region-title">${region}</div>`;
+
+        grouped[region].forEach(course=>{
+
+            const w=weatherCache[course.city];
+
+            if(!w || w.error){
+                html+=`<div class="card"><strong>${course.name}</strong><div class="error">讀取失敗</div></div>`;
+            }else{
+                let forecastHTML="";
+                w.forecasts.forEach(f=>{
+                    const rainClass = f.pop>60?"rain-high":"";
+                    forecastHTML+=`
+                    <div class="day-block ${rainClass}">
+                    ${f.date}（${f.weekday}）｜
+                    ${f.weather}｜
+                    ${f.minT}°C-${f.maxT}°C｜
+                    降雨 ${f.pop}%
+                    </div>`;
+                });
+
+                html+=`<div class="card"><strong>${course.name}</strong>${forecastHTML}</div>`;
+            }
+
+        });
+    }
+
     document.getElementById("courses").innerHTML=html;
 }
 
