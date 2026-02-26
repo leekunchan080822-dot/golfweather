@@ -114,7 +114,7 @@ const courses = [
 /* ===== 精準 ECMWF API ===== */
 async function getWeeklyWeather(lat,lon){
 
-    const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,precipitation_probability,precipitation,windspeed_10m,windgusts_10m&daily=temperature_2m_max,temperature_2m_min&forecast_days=7&timezone=Asia/Taipei&models=ecmwf`;
+    const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,precipitation_probability,precipitation,windspeed_10m,windgusts_10m&daily=temperature_2m_max,temperature_2m_min&forecast_days=7&timezone=Asia/Taipei&`;
 
     try{
         const res=await fetch(url);
