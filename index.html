@@ -24,6 +24,9 @@ body {
     font-weight: bold;
     margin-bottom: 10px;
 }
+.error {
+    color: red;
+}
 </style>
 </head>
 
@@ -34,7 +37,7 @@ body {
 
 <script>
 
-const API_KEY = "你的新中央氣象署KEY";
+const API_KEY = "CWA-60E4630E-A677-453A-BD76-C74F148C86ED";
 
 const courses = [
     { name: "林口高爾夫球場", city: "新北市" },
@@ -47,19 +50,34 @@ const courses = [
 
 async function getWeather(city) {
 
-    const url =
-    `https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization=${CWA-60E4630E-A677-453A-BD76-C74F148C86ED}&locationName=${city}`;
+    try {
 
-    const res = await fetch(url);
-    const data = await res.json();
+        const url =
+        `https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization=${API_KEY}&locationName=${city}`;
 
-    const location = data.records.location[0];
+        const res = await fetch(url);
+        const data = await res.json();
 
-    const weather = location.weatherElement[0].time[0].parameter.parameterName;
-    const pop = location.weatherElement[1].time[0].parameter.parameterName;
-    const temp = location.weatherElement[2].time[0].parameter.parameterName;
+        if (!data.records || !data.records.location || data.records.location.length === 0) {
+            return { error: "查無資料" };
+        }
 
-    return { weather, pop, temp };
+        const location = data.records.location[0];
+
+        const weather = location.weatherElement.find(e => e.elementName === "Wx")
+            ?.time[0].parameter.parameterName ?? "-";
+
+        const pop = location.weatherElement.find(e => e.elementName === "PoP")
+            ?.time[0].parameter.parameterName ?? "-";
+
+        const temp = location.weatherElement.find(e => e.elementName === "MinT")
+            ?.time[0].parameter.parameterName ?? "-";
+
+        return { weather, pop, temp };
+
+    } catch (err) {
+        return { error: "讀取失敗" };
+    }
 }
 
 async function loadCourses() {
@@ -70,14 +88,23 @@ async function loadCourses() {
 
         const w = await getWeather(course.city);
 
-        html += `
-            <div class="card">
-                <div class="title">${course.name}</div>
-                🌡 溫度：${w.temp}°C<br>
-                🌧 降雨機率：${w.pop}%<br>
-                ☁ 天氣：${w.weather}
-            </div>
-        `;
+        if (w.error) {
+            html += `
+                <div class="card">
+                    <div class="title">${course.name}</div>
+                    <div class="error">${w.error}</div>
+                </div>
+            `;
+        } else {
+            html += `
+                <div class="card">
+                    <div class="title">${course.name}</div>
+                    🌡 最低溫：${w.temp}°C<br>
+                    🌧 降雨機率：${w.pop}%<br>
+                    ☁ 天氣狀況：${w.weather}
+                </div>
+            `;
+        }
     }
 
     document.getElementById("courses").innerHTML = html;
