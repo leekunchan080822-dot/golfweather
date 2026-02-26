@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>711 專業版 V2｜全台高爾夫球場精準天氣預報（ECMWF）</title>
+<title>711 專業版 V3｜雙模型精準高爾夫天氣預報</title>
 
 <style>
-body { font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f5f7fa;margin:0;padding:15px;}
+body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f5f7fa;margin:0;padding:15px;}
 .header-info{text-align:center;font-size:14px;color:#555;}
 h2{text-align:center;margin:10px 0;}
 .region-buttons{text-align:center;margin:15px 0;}
@@ -15,30 +15,28 @@ h2{text-align:center;margin:10px 0;}
 .region-title{font-size:18px;font-weight:bold;margin:25px 0 10px;}
 .card{background:white;border-radius:12px;padding:12px;margin-bottom:12px;box-shadow:0 3px 10px rgba(0,0,0,0.08);}
 .day-block{font-size:13px;margin-top:6px;padding-top:6px;border-top:1px solid #eee;}
-.rain-high{color:red;font-weight:bold;}
-.wind-high{color:#d97706;font-weight:bold;}
-.gust-high{color:#b91c1c;font-weight:bold;}
+.model-title{font-weight:bold;margin-top:6px;}
 .error{color:red;}
-.toggle-btn{font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid #ccc;background:#f8f8f8;cursor:pointer;}
 small{color:#777;}
 </style>
 </head>
-
 <body>
 
 <div class="header-info" id="dateInfo"></div>
-<div class="header-info">資料來源：Open-Meteo ECMWF 模型｜逐小時格點預報</div>
-<h2>711 專業版 V2｜全台高爾夫球場 7 日精準預報（風速＋雨量強化版）</h2>
+<div class="header-info">雙模型來源：Open-Meteo（全球數值模式）＋ 中央氣象署格點預報</div>
+<h2>711 專業版 V3｜全台高爾夫球場 7 日雙模型預報</h2>
 
 <div class="region-buttons" id="regionButtons"></div>
 <div id="courses">載入中...</div>
 
 <script>
 
+/* ====== 請填入你的 CWA API KEY ====== */
+const CWA_API_KEY = "CWA-60E4630E-A677-453A-BD76-C74F148C86ED";
+
 /* ===== 日期 ===== */
 const today=new Date();
-document.getElementById("dateInfo").innerText=
-"資料更新時間："+today.toLocaleString();
+document.getElementById("dateInfo").innerText="更新時間："+today.toLocaleString();
 
 /* ===== 星期 ===== */
 function getWeekday(dateStr){
@@ -47,7 +45,7 @@ function getWeekday(dateStr){
     return arr[d.getDay()];
 }
 
-/* ===== 全台高爾夫球場完整經緯度清單 ===== */
+/* ===== 全台球場完整清單（含經緯度） ===== */
 const courses = [
 
 /* 台北 / 新北 */
@@ -111,187 +109,68 @@ const courses = [
 
 ];
 
-/* ===== 精準 ECMWF API ===== */
-async function getWeeklyWeather(lat,lon){
-
-    const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,precipitation_probability,precipitation,windspeed_10m,windgusts_10m&daily=temperature_2m_max,temperature_2m_min&forecast_days=7&timezone=Asia/Taipei&`;
-
+/* ===== Open-Meteo ===== */
+async function getOpenMeteo(lat,lon){
+    const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min&forecast_days=7&timezone=Asia/Taipei`;
     try{
         const res=await fetch(url);
         const data=await res.json();
-
-        const hourly=data.hourly;
-        const daily=data.daily;
-
-        const results=[];
-
-        for(let d=0;d<7;d++){
-
-            const date=daily.time[d];
-            const morning=[];
-            const afternoon=[];
-
-            hourly.time.forEach((t,i)=>{
-                if(t.startsWith(date)){
-                    const h=parseInt(t.substring(11,13));
-                    if(h>=8&&h<12) morning.push(i);
-                    if(h>=12&&h<18) afternoon.push(i);
-                }
-            });
-
-            const avg=(arr,key)=>
-                arr.length?Math.round(arr.reduce((s,i)=>s+hourly[key][i],0)/arr.length):0;
-
-            results.push({
-                date,
-                weekday:getWeekday(date),
-                minT:daily.temperature_2m_min[d],
-                maxT:daily.temperature_2m_max[d],
-
-                popMorning:avg(morning,"precipitation_probability"),
-                popAfternoon:avg(afternoon,"precipitation_probability"),
-
-                rainMorning:avg(morning,"precipitation"),
-                rainAfternoon:avg(afternoon,"precipitation"),
-
-                windMorning:avg(morning,"windspeed_10m"),
-                windAfternoon:avg(afternoon,"windspeed_10m"),
-
-                gustMorning:avg(morning,"windgusts_10m"),
-                gustAfternoon:avg(afternoon,"windgusts_10m")
+        let arr=[];
+        for(let i=0;i<7;i++){
+            arr.push({
+                date:data.daily.time[i],
+                minT:data.daily.temperature_2m_min[i],
+                maxT:data.daily.temperature_2m_max[i]
             });
         }
-
-        return {forecasts:results};
-
-    }catch(e){
-        console.log(e);
-        return {error:true};
-    }
+        return arr;
+    }catch(e){return null;}
 }
 
-/* ===== UI 控制 ===== */
-let weatherCache={};
-
-function createRegionButtons(){
-    const regions=["全部",...new Set(courses.map(c=>c.region))];
-    const container=document.getElementById("regionButtons");
-    container.innerHTML="";
-    regions.forEach(r=>{
-        const btn=document.createElement("button");
-        btn.innerText=r;
-        btn.onclick=()=>filterRegion(r);
-        container.appendChild(btn);
-    });
-    container.firstChild.classList.add("active");
-}
-
-function filterRegion(selected){
-    document.querySelectorAll(".region-buttons button").forEach(btn=>{
-        btn.classList.toggle("active",btn.innerText===selected);
-    });
-    renderCourses(selected);
-}
-
-/* ===== 載入 ===== */
-async function loadCourses(){
-
-    await Promise.all(
-        courses.map(async c=>{
-            weatherCache[c.name]=await getWeeklyWeather(c.lat,c.lon);
-        })
-    );
-
-    createRegionButtons();
-    renderCourses("全部");
-}
-
-/* ===== 渲染 ===== */
-function renderCourses(filter="全部"){
-
-    let html="";
-
-    const filtered=filter==="全部"?courses:courses.filter(c=>c.region===filter);
-
-    const grouped=filtered.reduce((acc,c)=>{
-        if(!acc[c.region]) acc[c.region]=[];
-        acc[c.region].push(c);
-        return acc;
-    },{});
-
-    for(const region in grouped){
-
-        html+=`<div class="region-title">${region}</div>`;
-
-        grouped[region].forEach((course,index)=>{
-
-            const w=weatherCache[course.name];
-
-            if(!w||w.error){
-                html+=`<div class="card"><strong>${course.name}</strong><div class="error">讀取失敗</div></div>`;
-                return;
-            }
-
-            const cardId=`card_${region}_${index}`.replace(/\s/g,'');
-
-            let forecastHTML="";
-
-            w.forecasts.forEach((f,i)=>{
-
-                const hidden=i>=2?"display:none;":"";
-
-                const rainClassMorning=f.rainMorning>=0.5?"rain-high":"";
-                const rainClassAfternoon=f.rainAfternoon>=0.5?"rain-high":"";
-
-                const windClassMorning=f.windMorning>=25?"wind-high":"";
-                const windClassAfternoon=f.windAfternoon>=25?"wind-high":"";
-
-                const gustClassMorning=f.gustMorning>=35?"gust-high":"";
-                const gustClassAfternoon=f.gustAfternoon>=35?"gust-high":"";
-
-                forecastHTML+=`
-                <div class="day-block extra-day" style="${hidden}">
-                <strong>${f.date}（${f.weekday}）</strong><br>
-                溫度 ${f.minT}°C - ${f.maxT}°C<br>
-
-                08–12｜
-                ☔ <span class="${rainClassMorning}">${f.rainMorning}mm (${f.popMorning}%)</span>｜
-                🌬 <span class="${windClassMorning}">${f.windMorning}km/h</span>｜
-                💨 <span class="${gustClassMorning}">陣風 ${f.gustMorning}</span><br>
-
-                12–18｜
-                ☔ <span class="${rainClassAfternoon}">${f.rainAfternoon}mm (${f.popAfternoon}%)</span>｜
-                🌬 <span class="${windClassAfternoon}">${f.windAfternoon}km/h</span>｜
-                💨 <span class="${gustClassAfternoon}">陣風 ${f.gustAfternoon}</span>
-                </div>`;
+/* ===== CWA ===== */
+async function getCWA(lat,lon){
+    const url=`https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-D0047-093?Authorization=${CWA_API_KEY}&format=JSON&Location=${lat},${lon}`;
+    try{
+        const res=await fetch(url);
+        const data=await res.json();
+        const loc=data.records.Locations[0].Location[0];
+        const maxT=loc.WeatherElement.find(e=>e.ElementName==="MaxT").Time;
+        const minT=loc.WeatherElement.find(e=>e.ElementName==="MinT").Time;
+        let arr=[];
+        for(let i=0;i<7;i++){
+            arr.push({
+                date:maxT[i].StartTime.substring(0,10),
+                minT:minT[i].ElementValue[0].Value,
+                maxT:maxT[i].ElementValue[0].Value
             });
-
-            forecastHTML+=`
-            <div style="text-align:right;margin-top:6px;">
-                <button class="toggle-btn" onclick="toggleForecast('${cardId}',this)">展開</button>
-            </div>`;
-
-            html+=`
-            <div class="card" id="${cardId}">
-                <strong>${course.name}</strong><br>
-                <small>座標：${course.lat}, ${course.lon}</small>
-                ${forecastHTML}
-            </div>`;
-        });
-    }
-
-    document.getElementById("courses").innerHTML=html;
+        }
+        return arr;
+    }catch(e){return null;}
 }
 
-/* ===== 展開收合 ===== */
-function toggleForecast(cardId,btn){
-    const card=document.getElementById(cardId);
-    const extra=card.querySelectorAll(".extra-day");
-    const hidden=extra[2]?.style.display==="none";
-    extra.forEach((d,i)=>{
-        if(i>=2) d.style.display=hidden?"block":"none";
-    });
-    btn.innerText=hidden?"收合":"展開";
+/* ===== UI ===== */
+async function loadCourses(){
+    let html="";
+    for(const course of courses){
+        html+=`<div class="card"><strong>${course.name}</strong><br><small>${course.lat},${course.lon}</small>`;
+        const open=await getOpenMeteo(course.lat,course.lon);
+        const cwa=await getCWA(course.lat,course.lon);
+
+        if(!open&&!cwa){
+            html+=`<div class="error">讀取失敗</div></div>`;
+            continue;
+        }
+
+        for(let i=0;i<7;i++){
+            html+=`<div class="day-block"><strong>${open?open[i].date:cwa[i].date}（${getWeekday(open?open[i].date:cwa[i].date)}）</strong><br>`;
+            if(open) html+=`Open-Meteo：${open[i].minT}°C - ${open[i].maxT}°C<br>`;
+            if(cwa) html+=`CWA：${cwa[i].minT}°C - ${cwa[i].maxT}°C<br>`;
+            html+=`</div>`;
+        }
+
+        html+=`</div>`;
+    }
+    document.getElementById("courses").innerHTML=html;
 }
 
 loadCourses();
