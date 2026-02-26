@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>711專用-高爾夫球場天氣</title>
+<title>711專用-全台高爾夫球場一週天氣預報</title>
 
 <style>
 body {
@@ -24,7 +24,6 @@ h2 {
     margin: 10px 0;
 }
 
-/* 區域按鈕 */
 .region-buttons {
     text-align: center;
     margin: 15px 0;
@@ -46,7 +45,6 @@ h2 {
     border-color: #333;
 }
 
-/* 區域標題 */
 .region-title {
     font-size: 18px;
     font-weight: bold;
@@ -63,17 +61,20 @@ h2 {
     background: white;
     border-radius: 12px;
     padding: 12px;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
     box-shadow: 0 3px 10px rgba(0,0,0,0.08);
 }
 
-.card.rain {
-    background: #eef6ff;
+.day-block {
+    font-size: 13px;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid #eee;
 }
 
-.title {
+.rain-high {
+    color: red;
     font-weight: bold;
-    margin-bottom: 6px;
 }
 
 .error {
@@ -85,151 +86,167 @@ h2 {
 <body>
 
 <div class="header-info" id="dateInfo"></div>
-<div class="header-info">資料來源：中央氣象局（CWA）</div>
+<div class="header-info">資料來源：中央氣象署（CWA）</div>
 
-<h2>711專用-高爾夫球場天氣</h2>
+<h2>711專用-全台高爾夫球場一週天氣預報</h2>
 
 <div class="region-buttons" id="regionButtons"></div>
-
 <div id="courses">載入中...</div>
 
 <script>
 
-/* ===== 日期 ===== */
+/* ===== 更新日期 ===== */
 const today = new Date();
 const dateStr =
     today.getFullYear() + "/" +
-    (today.getMonth() + 1).toString().padStart(2, "0") + "/" +
-    today.getDate().toString().padStart(2, "0");
+    (today.getMonth()+1).toString().padStart(2,"0") + "/" +
+    today.getDate().toString().padStart(2,"0");
 
 document.getElementById("dateInfo").innerText =
-    "更新日期：" + dateStr;
+    "資料更新日期：" + dateStr;
 
 /* ===== API KEY ===== */
 const API_KEY = "CWA-60E4630E-A677-453A-BD76-C74F148C86ED";
 
-/* ===== 悅來分類完整球場清單 ===== */
+/* ===== 星期轉換 ===== */
+function getWeekday(dateStr){
+    const d = new Date(dateStr);
+    const arr = ["週日","週一","週二","週三","週四","週五","週六"];
+    return arr[d.getDay()];
+}
+
+/* ===== 球場清單（完整） ===== */
 const courses = [
+{ region:"台北市 / 新北市", name:"翡翠高爾夫球場", city:"新北市" },
+{ region:"台北市 / 新北市", name:"黃金海岸（北海）高爾夫球場", city:"新北市" },
+{ region:"台北市 / 新北市", name:"濱海高爾夫俱樂部", city:"新北市" },
+{ region:"台北市 / 新北市", name:"台灣（老淡水）高爾夫球場", city:"新北市" },
+{ region:"台北市 / 新北市", name:"大屯高爾夫球場", city:"新北市" },
+{ region:"台北市 / 新北市", name:"揮皇（新淡水）高爾夫球場", city:"新北市" },
+{ region:"台北市 / 新北市", name:"林口高爾夫球場", city:"新北市" },
+{ region:"台北市 / 新北市", name:"八里國際高爾夫球場", city:"新北市" },
+{ region:"台北市 / 新北市", name:"美麗華高爾夫球場", city:"新北市" },
+{ region:"台北市 / 新北市", name:"幸福高爾夫球場", city:"新北市" },
+{ region:"台北市 / 新北市", name:"東華高爾夫球場", city:"新北市" },
 
-/* 台北市 / 新北市 */
-{ region: "台北市 / 新北市", name: "翡翠高爾夫球場", city: "新北市" },
-{ region: "台北市 / 新北市", name: "黃金海岸（北海）高爾夫球場", city: "新北市" },
-{ region: "台北市 / 新北市", name: "濱海高爾夫俱樂部", city: "新北市" },
-{ region: "台北市 / 新北市", name: "台灣（老淡水）高爾夫球場", city: "新北市" },
-{ region: "台北市 / 新北市", name: "大屯高爾夫球場", city: "新北市" },
-{ region: "台北市 / 新北市", name: "揮皇（新淡水）高爾夫球場", city: "新北市" },
-{ region: "台北市 / 新北市", name: "林口高爾夫球場", city: "新北市" },
-{ region: "台北市 / 新北市", name: "八里國際高爾夫球場", city: "新北市" },
-{ region: "台北市 / 新北市", name: "美麗華高爾夫球場", city: "新北市" },
-{ region: "台北市 / 新北市", name: "幸福高爾夫球場", city: "新北市" },
-{ region: "台北市 / 新北市", name: "東華高爾夫球場", city: "新北市" },
+{ region:"桃園", name:"台北高爾夫球場", city:"桃園市" },
+{ region:"桃園", name:"統帥高爾夫球場", city:"桃園市" },
+{ region:"桃園", name:"長庚高爾夫球場", city:"桃園市" },
+{ region:"桃園", name:"東方高爾夫球場", city:"桃園市" },
+{ region:"桃園", name:"第一高爾夫球場", city:"桃園市" },
+{ region:"桃園", name:"永漢高爾夫球場", city:"桃園市" },
+{ region:"桃園", name:"桃園高爾夫球場", city:"桃園市" },
+{ region:"桃園", name:"大溪高爾夫球場", city:"桃園市" },
+{ region:"桃園", name:"龍潭高爾夫球場", city:"桃園市" },
+{ region:"桃園", name:"揚昇高爾夫鄉村俱樂部", city:"桃園市" },
 
-/* 桃園 */
-{ region: "桃園", name: "台北高爾夫球場", city: "桃園市" },
-{ region: "桃園", name: "統帥高爾夫球場", city: "桃園市" },
-{ region: "桃園", name: "長庚高爾夫球場", city: "桃園市" },
-{ region: "桃園", name: "東方高爾夫球場", city: "桃園市" },
-{ region: "桃園", name: "第一高爾夫球場", city: "桃園市" },
-{ region: "桃園", name: "永漢高爾夫球場", city: "桃園市" },
-{ region: "桃園", name: "桃園高爾夫球場", city: "桃園市" },
-{ region: "桃園", name: "大溪高爾夫球場", city: "桃園市" },
-{ region: "桃園", name: "龍潭高爾夫球場", city: "桃園市" },
-{ region: "桃園", name: "揚昇高爾夫鄉村俱樂部", city: "桃園市" },
+{ region:"花東", name:"礁溪高爾夫球場", city:"宜蘭縣" },
+{ region:"花東", name:"花蓮高爾夫球場", city:"花蓮縣" },
 
-/* 花東 */
-{ region: "花東", name: "礁溪高爾夫球場", city: "宜蘭縣" },
-{ region: "花東", name: "花蓮高爾夫球場", city: "花蓮縣" },
+{ region:"新竹 / 苗栗", name:"再興高爾夫球場", city:"新竹縣" },
+{ region:"新竹 / 苗栗", name:"新竹（新豐）高爾夫球場", city:"新竹縣" },
+{ region:"新竹 / 苗栗", name:"東方之星高爾夫球場", city:"苗栗縣" },
+{ region:"新竹 / 苗栗", name:"立益高爾夫球場", city:"苗栗縣" },
+{ region:"新竹 / 苗栗", name:"旭陽高爾夫球場", city:"苗栗縣" },
+{ region:"新竹 / 苗栗", name:"老爺關西高爾夫球場", city:"新竹縣" },
+{ region:"新竹 / 苗栗", name:"山溪地高爾夫球場", city:"苗栗縣" },
+{ region:"新竹 / 苗栗", name:"寶山高爾夫球場", city:"新竹縣" },
+{ region:"新竹 / 苗栗", name:"皇家高爾夫球場", city:"苗栗縣" },
+{ region:"新竹 / 苗栗", name:"全國高爾夫球場", city:"苗栗縣" },
 
-/* 新竹 / 苗栗 */
-{ region: "新竹 / 苗栗", name: "再興高爾夫球場", city: "新竹縣" },
-{ region: "新竹 / 苗栗", name: "新竹（新豐）高爾夫球場", city: "新竹縣" },
-{ region: "新竹 / 苗栗", name: "東方之星高爾夫球場", city: "苗栗縣" },
-{ region: "新竹 / 苗栗", name: "立益高爾夫球場", city: "苗栗縣" },
-{ region: "新竹 / 苗栗", name: "旭陽高爾夫球場", city: "苗栗縣" },
-{ region: "新竹 / 苗栗", name: "老爺關西高爾夫球場", city: "新竹縣" },
-{ region: "新竹 / 苗栗", name: "山溪地高爾夫球場", city: "苗栗縣" },
-{ region: "新竹 / 苗栗", name: "寶山高爾夫球場", city: "新竹縣" },
-{ region: "新竹 / 苗栗", name: "皇家高爾夫球場", city: "苗栗縣" },
-{ region: "新竹 / 苗栗", name: "全國高爾夫球場", city: "苗栗縣" },
+{ region:"台中 / 彰化 / 南投", name:"清泉崗高爾夫球場", city:"臺中市" },
+{ region:"台中 / 彰化 / 南投", name:"豐原高爾夫球場", city:"臺中市" },
+{ region:"台中 / 彰化 / 南投", name:"台中國際高爾夫球場", city:"臺中市" },
+{ region:"台中 / 彰化 / 南投", name:"霧峰高爾夫球場", city:"臺中市" },
 
-/* 台中 / 彰化 / 南投 */
-{ region: "台中 / 彰化 / 南投", name: "清泉崗高爾夫球場", city: "臺中市" },
-{ region: "台中 / 彰化 / 南投", name: "豐原高爾夫球場", city: "臺中市" },
-{ region: "台中 / 彰化 / 南投", name: "台中國際高爾夫球場", city: "臺中市" },
-{ region: "台中 / 彰化 / 南投", name: "霧峰高爾夫球場", city: "臺中市" },
-
-/* 嘉義 / 台南 / 高雄 / 屏東 */
-{ region: "嘉義 / 台南 / 高雄 / 屏東", name: "棕梠湖（東洋）高爾夫球場", city: "嘉義縣" },
-{ region: "嘉義 / 台南 / 高雄 / 屏東", name: "斑芝花高爾夫俱樂部", city: "臺南市" },
-{ region: "嘉義 / 台南 / 高雄 / 屏東", name: "嘉光高爾夫球場", city: "嘉義市" },
-{ region: "嘉義 / 台南 / 高雄 / 屏東", name: "台南高爾夫球場（新化）", city: "臺南市" },
-{ region: "嘉義 / 台南 / 高雄 / 屏東", name: "南一高爾夫球場", city: "臺南市" },
-{ region: "嘉義 / 台南 / 高雄 / 屏東", name: "南寶高爾夫球場", city: "臺南市" },
-{ region: "嘉義 / 台南 / 高雄 / 屏東", name: "大崗山高爾夫球場", city: "高雄市" },
-{ region: "嘉義 / 台南 / 高雄 / 屏東", name: "信誼高爾夫球場", city: "高雄市" },
-{ region: "嘉義 / 台南 / 高雄 / 屏東", name: "觀音山高爾夫球場", city: "高雄市" },
-{ region: "嘉義 / 台南 / 高雄 / 屏東", name: "屏東高爾夫球場", city: "屏東縣" }
-
+{ region:"嘉義 / 台南 / 高雄 / 屏東", name:"棕梠湖（東洋）高爾夫球場", city:"嘉義縣" },
+{ region:"嘉義 / 台南 / 高雄 / 屏東", name:"斑芝花高爾夫俱樂部", city:"臺南市" },
+{ region:"嘉義 / 台南 / 高雄 / 屏東", name:"嘉光高爾夫球場", city:"嘉義市" },
+{ region:"嘉義 / 台南 / 高雄 / 屏東", name:"台南高爾夫球場（新化）", city:"臺南市" },
+{ region:"嘉義 / 台南 / 高雄 / 屏東", name:"南一高爾夫球場", city:"臺南市" },
+{ region:"嘉義 / 台南 / 高雄 / 屏東", name:"南寶高爾夫球場", city:"臺南市" },
+{ region:"嘉義 / 台南 / 高雄 / 屏東", name:"大崗山高爾夫球場", city:"高雄市" },
+{ region:"嘉義 / 台南 / 高雄 / 屏東", name:"信誼高爾夫球場", city:"高雄市" },
+{ region:"嘉義 / 台南 / 高雄 / 屏東", name:"觀音山高爾夫球場", city:"高雄市" },
+{ region:"嘉義 / 台南 / 高雄 / 屏東", name:"屏東高爾夫球場", city:"屏東縣" }
 ];
 
-/* ===== 取得天氣 ===== */
-async function getWeather(city) {
+/* ===== 取得一週預報 ===== */
+async function getWeeklyWeather(city) {
+
     const url =
-    `https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization=${API_KEY}&locationName=${city}`;
+    `https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-005?Authorization=${API_KEY}&locationName=${city}`;
 
     try {
         const res = await fetch(url);
         const data = await res.json();
-        if (!data.records?.location?.length) return { error: true };
+
+        if (!data.records?.location?.length) return { error:true };
 
         const location = data.records.location[0];
-        const get = name =>
-            location.weatherElement.find(e => e.elementName === name);
+        const elements = location.weatherElement;
 
-        return {
-            weather: get("Wx")?.time[0].parameter.parameterName ?? "-",
-            pop: get("PoP")?.time[0].parameter.parameterName ?? "-",
-            minT: get("MinT")?.time[0].parameter.parameterName ?? "-",
-            maxT: get("MaxT")?.time[0].parameter.parameterName ?? "-"
-        };
+        const wx = elements.find(e=>e.elementName==="Wx").time;
+        const pop = elements.find(e=>e.elementName==="PoP").time;
+        const minT = elements.find(e=>e.elementName==="MinT").time;
+        const maxT = elements.find(e=>e.elementName==="MaxT").time;
+
+        let forecasts = [];
+
+        for (let i=0; i<wx.length; i++) {
+
+            const date = wx[i].startTime.substring(0,10);
+            const rainValue = parseInt(pop[i].parameter.parameterName);
+
+            forecasts.push({
+                date,
+                weekday: getWeekday(date),
+                weather: wx[i].parameter.parameterName,
+                pop: rainValue,
+                minT: minT[i].parameter.parameterName,
+                maxT: maxT[i].parameter.parameterName
+            });
+        }
+
+        return { forecasts };
 
     } catch {
-        return { error: true };
+        return { error:true };
     }
 }
 
-/* ===== 建立區域按鈕 ===== */
+/* ===== 區域按鈕 ===== */
 function createRegionButtons() {
-    const regions = ["全部", ...new Set(courses.map(c => c.region))];
+    const regions = ["全部", ...new Set(courses.map(c=>c.region))];
     const container = document.getElementById("regionButtons");
 
-    regions.forEach(region => {
-        const btn = document.createElement("button");
-        btn.innerText = region;
-        btn.onclick = () => filterRegion(region);
+    regions.forEach(region=>{
+        const btn=document.createElement("button");
+        btn.innerText=region;
+        btn.onclick=()=>filterRegion(region);
         container.appendChild(btn);
     });
 
     container.firstChild.classList.add("active");
 }
 
-function filterRegion(selected) {
-    const buttons = document.querySelectorAll(".region-buttons button");
-    buttons.forEach(btn => {
+function filterRegion(selected){
+    const buttons=document.querySelectorAll(".region-buttons button");
+    buttons.forEach(btn=>{
         btn.classList.remove("active");
-        if (btn.innerText === selected) btn.classList.add("active");
+        if(btn.innerText===selected) btn.classList.add("active");
     });
     renderCourses(selected);
 }
 
-let weatherCache = {};
+let weatherCache={};
 
-async function loadCourses() {
-    const cities = [...new Set(courses.map(c => c.city))];
+async function loadCourses(){
+    const cities=[...new Set(courses.map(c=>c.city))];
 
     await Promise.all(
-        cities.map(async city => {
-            weatherCache[city] = await getWeather(city);
+        cities.map(async city=>{
+            weatherCache[city]=await getWeeklyWeather(city);
         })
     );
 
@@ -237,45 +254,54 @@ async function loadCourses() {
     renderCourses("全部");
 }
 
-function renderCourses(filter) {
-    let html = "";
-
-    const grouped = courses.reduce((acc, course) => {
-        if (filter !== "全部" && course.region !== filter) return acc;
-        if (!acc[course.region]) acc[course.region] = [];
+function renderCourses(filter){
+    let html="";
+    const grouped=courses.reduce((acc,course)=>{
+        if(filter!=="全部" && course.region!==filter) return acc;
+        if(!acc[course.region]) acc[course.region]=[];
         acc[course.region].push(course);
         return acc;
-    }, {});
+    },{});
 
-    for (const region in grouped) {
-        html += `<div class="region-title">${region}</div>`;
-        grouped[region].forEach(course => {
-            const w = weatherCache[course.city];
-            if (!w || w.error) {
-                html += `
-                    <div class="card">
-                        <div class="title">${course.name}</div>
-                        <div class="error">天氣資料讀取失敗</div>
-                    </div>
-                `;
-            } else {
-                const popValue = parseInt(w.pop);
-                const rainClass =
-                    !isNaN(popValue) && popValue > 50 ? "rain" : "";
+    for(const region in grouped){
 
-                html += `
-                    <div class="card ${rainClass}">
-                        <div class="title">${course.name}</div>
-                        溫度：${w.minT}°C - ${w.maxT}°C<br>
-                        降雨機率：${w.pop}%<br>
-                        天氣：${w.weather}
-                    </div>
-                `;
+        html+=`<div class="region-title">${region}</div>`;
+
+        grouped[region].forEach(course=>{
+
+            const w=weatherCache[course.city];
+
+            if(!w || w.error){
+                html+=`
+                <div class="card">
+                    <strong>${course.name}</strong>
+                    <div class="error">讀取失敗</div>
+                </div>`;
+            }else{
+
+                let forecastHTML="";
+
+                w.forecasts.forEach(f=>{
+                    const rainClass = f.pop > 60 ? "rain-high" : "";
+                    forecastHTML+=`
+                    <div class="day-block ${rainClass}">
+                        ${f.date}（${f.weekday}）｜
+                        ${f.weather}｜
+                        ${f.minT}°C-${f.maxT}°C｜
+                        降雨 ${f.pop}%
+                    </div>`;
+                });
+
+                html+=`
+                <div class="card">
+                    <strong>${course.name}</strong>
+                    ${forecastHTML}
+                </div>`;
             }
         });
     }
 
-    document.getElementById("courses").innerHTML = html;
+    document.getElementById("courses").innerHTML=html;
 }
 
 loadCourses();
