@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>711專用-高爾夫球場天氣</title>
+<title>711-台灣高爾夫球場天氣</title>
 
 <style>
 body {
@@ -17,12 +17,32 @@ body {
     text-align: center;
     font-size: 14px;
     color: #555;
-    margin-bottom: 5px;
 }
 
 h2 {
     text-align: center;
-    margin-top: 0;
+    margin: 10px 0;
+}
+
+.region-buttons {
+    text-align: center;
+    margin: 15px 0;
+}
+
+.region-buttons button {
+    margin: 4px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: 1px solid #ccc;
+    background: white;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.region-buttons button.active {
+    background: #333;
+    color: white;
+    border-color: #333;
 }
 
 .region-title {
@@ -59,7 +79,9 @@ h2 {
 <div class="header-info" id="dateInfo"></div>
 <div class="header-info">資料來源：中央氣象局（CWA）</div>
 
-<h2>711專用-高爾夫球場天氣</h2>
+<h2>711-台灣高爾夫球場天氣</h2>
+
+<div class="region-buttons" id="regionButtons"></div>
 
 <div id="courses">載入中...</div>
 
@@ -78,7 +100,7 @@ document.getElementById("dateInfo").innerText =
 /* ===== API KEY ===== */
 const API_KEY = "CWA-60E4630E-A677-453A-BD76-C74F148C86ED";
 
-/* ===== 悅來分類球場清單 ===== */
+/* ===== 悅來分類完整球場清單 ===== */
 
 const courses = [
 
@@ -144,23 +166,17 @@ const courses = [
 ];
 
 /* ===== 取得天氣 ===== */
-
 async function getWeather(city) {
-
     const url =
     `https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization=${API_KEY}&locationName=${city}`;
 
     try {
         const res = await fetch(url);
         const data = await res.json();
-
-        if (!data.records?.location?.length) {
-            return { error: true };
-        }
+        if (!data.records?.location?.length) return { error: true };
 
         const location = data.records.location[0];
-
-        const get = (name) =>
+        const get = name =>
             location.weatherElement.find(e => e.elementName === name);
 
         return {
@@ -175,35 +191,59 @@ async function getWeather(city) {
     }
 }
 
-/* ===== 主程式 ===== */
+/* ===== 建立區域按鈕 ===== */
+function createRegionButtons() {
+    const regions = ["全部", ...new Set(courses.map(c => c.region))];
+    const container = document.getElementById("regionButtons");
+
+    regions.forEach(region => {
+        const btn = document.createElement("button");
+        btn.innerText = region;
+        btn.onclick = () => filterRegion(region);
+        container.appendChild(btn);
+    });
+
+    container.firstChild.classList.add("active");
+}
+
+function filterRegion(selected) {
+    const buttons = document.querySelectorAll(".region-buttons button");
+    buttons.forEach(btn => {
+        btn.classList.remove("active");
+        if (btn.innerText === selected) btn.classList.add("active");
+    });
+    renderCourses(selected);
+}
+
+let weatherCache = {};
 
 async function loadCourses() {
-
     const cities = [...new Set(courses.map(c => c.city))];
-    const weatherData = {};
 
     await Promise.all(
         cities.map(async city => {
-            weatherData[city] = await getWeather(city);
+            weatherCache[city] = await getWeather(city);
         })
     );
 
+    createRegionButtons();
+    renderCourses("全部");
+}
+
+function renderCourses(filter) {
+    let html = "";
+
     const grouped = courses.reduce((acc, course) => {
+        if (filter !== "全部" && course.region !== filter) return acc;
         if (!acc[course.region]) acc[course.region] = [];
         acc[course.region].push(course);
         return acc;
     }, {});
 
-    let html = "";
-
     for (const region in grouped) {
-
         html += `<div class="region-title">${region}</div>`;
-
-        for (const course of grouped[region]) {
-
-            const w = weatherData[course.city];
-
+        grouped[region].forEach(course => {
+            const w = weatherCache[course.city];
             if (!w || w.error) {
                 html += `
                     <div class="card">
@@ -212,7 +252,6 @@ async function loadCourses() {
                     </div>
                 `;
             } else {
-
                 const popValue = parseInt(w.pop);
                 const rainClass =
                     !isNaN(popValue) && popValue > 50 ? "rain" : "";
@@ -226,7 +265,7 @@ async function loadCourses() {
                     </div>
                 `;
             }
-        }
+        });
     }
 
     document.getElementById("courses").innerHTML = html;
