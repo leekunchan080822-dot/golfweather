@@ -12,7 +12,6 @@ body {
     margin:0;
     padding:15px;
 }
-
 h2 { text-align:center; }
 
 .region-btn {
@@ -63,60 +62,50 @@ h2 { text-align:center; }
 <body>
 
 <h2>🏌️ Golf Rain Radar</h2>
-
 <div id="main"></div>
 
 <script>
 
 const API_KEY = "fc4f1698bc8d47ba90757e3c03e713bc";
 
-/* 你給的區域分類（只放名稱） */
+/* 固定經緯度版本 */
 const regions = {
+
 "台北市、新北市":[
-"翡翠","黃金海岸(北海)","濱海","大屯","台灣(老淡水)",
-"揮皇(新淡水)","國華","八里國際","美麗華","幸福","東華","林口"
+{name:"翡翠", lat:25.016, lon:121.649},
+{name:"黃金海岸(北海)", lat:25.291, lon:121.556},
+{name:"濱海", lat:25.272, lon:121.539},
+{name:"大屯", lat:25.191, lon:121.507},
+{name:"台灣(老淡水)", lat:25.172, lon:121.431},
+{name:"揮皇(新淡水)", lat:25.190, lon:121.457},
+{name:"國華", lat:25.140, lon:121.465},
+{name:"八里國際", lat:25.146, lon:121.399},
+{name:"美麗華", lat:25.116, lon:121.409},
+{name:"幸福", lat:25.118, lon:121.421},
+{name:"東華", lat:25.011, lon:121.535},
+{name:"林口", lat:25.080, lon:121.392}
 ],
 
 "桃園地區":[
-"台北","統帥","第一","永漢","長庚","東方",
-"大溪","桃園","龍潭","揚昇","楊梅"
-],
-
-"花東地區":[
-"礁溪","花蓮"
-],
-
-"新竹、苗栗":[
-"再興","新竹(新豐)","立益","旭陽","老爺關西",
-"山溪地","寶山","皇家","全國"
-],
-
-"台中、彰化、南投":[
-"清泉崗","豐原","台中國際","鴻禧太平",
-"霧峰","台豐","彰化","南峰","松柏嶺"
-],
-
-"嘉義、台南、高雄、屏東":[
-"棕梠湖","嘉光","斑芝花","嘉南","南寶",
-"台南(新化)","南一","大崗山","觀音山","信誼","山湖觀"
+{name:"台北(桃園)", lat:25.059, lon:121.223},
+{name:"統帥", lat:25.063, lon:121.274},
+{name:"第一", lat:25.066, lon:121.218},
+{name:"永漢", lat:25.062, lon:121.206},
+{name:"長庚", lat:25.050, lon:121.352},
+{name:"東方", lat:25.040, lon:121.270},
+{name:"大溪", lat:24.879, lon:121.296},
+{name:"桃園", lat:24.989, lon:121.310},
+{name:"龍潭", lat:24.863, lon:121.213},
+{name:"揚昇", lat:24.833, lon:121.177},
+{name:"楊梅", lat:24.912, lon:121.145}
 ]
+
 };
 
-
-/* 用球場名稱查詢天氣 */
-async function getWeatherByName(name){
-    const geoUrl = `https://api.openweathermap.org/geo/1.0/direct?q=${name},Taiwan&limit=1&appid=${API_KEY}`;
-    const geoRes = await fetch(geoUrl);
-    const geoData = await geoRes.json();
-
-    if(!geoData[0]) return null;
-
-    const {lat, lon} = geoData[0];
-
-    const weatherUrl =
+async function getWeather(lat, lon){
+    const url =
     `https://api.openweathermap.org/data/3.0/onecall?lat=${lat}&lon=${lon}&exclude=minutely,daily,alerts&units=metric&appid=${API_KEY}`;
-
-    const res = await fetch(weatherUrl);
+    const res = await fetch(url);
     return await res.json();
 }
 
@@ -126,7 +115,6 @@ function rainClass(pop){
     return "rain-high";
 }
 
-/* 顯示區域按鈕 */
 function showRegions(){
     let html = "";
     for(const region in regions){
@@ -135,7 +123,6 @@ function showRegions(){
     document.getElementById("main").innerHTML = html;
 }
 
-/* 載入區域球場 */
 async function loadRegion(region){
 
     document.getElementById("main").innerHTML = "載入中...";
@@ -144,19 +131,15 @@ async function loadRegion(region){
 
     for(const course of regions[region]){
 
-        const data = await getWeatherByName(course);
-
-        if(!data) continue;
-
+        const data = await getWeather(course.lat, course.lon);
         const current = data.current;
         const hourly = data.hourly.slice(0,12);
 
         html += `
         <div class="card">
-            <strong>${course}</strong><br>
+            <strong>${course.name}</strong><br>
             🌡 ${current.temp}°C　
             🌬 ${(current.wind_speed*3.6).toFixed(1)} km/h
-
             <div class="hourly">
         `;
 
