@@ -17,6 +17,7 @@ h2 { text-align:center; margin:10px 0;}
 .day-block { font-size:13px; margin-top:6px; padding-top:6px; border-top:1px solid #eee;}
 .rain-high { color:red; font-weight:bold;}
 .error { color:red;}
+.toggle-btn { font-size:12px; padding:4px 8px; border-radius:6px; border:1px solid #ccc; background:#f8f8f8; cursor:pointer;}
 </style>
 </head>
 
@@ -51,7 +52,7 @@ function getWeekday(dateStr){
     return arr[d.getDay()];
 }
 
-/* ===== 球場清單 ===== */
+/* 球場清單（示範，可自行擴充） */
 const courses = [
 { region:"台北市 / 新北市", name:"翡翠高爾夫球場", city:"新北市" },
 { region:"台北市 / 新北市", name:"黃金海岸（北海）高爾夫球場", city:"新北市" },
@@ -232,18 +233,24 @@ function renderCourses(filter="全部"){
 
         html+=`<div class="region-title">${region}</div>`;
 
-        grouped[region].forEach(course=>{
+        grouped[region].forEach((course,index)=>{
 
             const w=weatherCache[course.city];
 
             if(!w || w.error){
                 html+=`<div class="card"><strong>${course.name}</strong><div class="error">讀取失敗</div></div>`;
             }else{
+
                 let forecastHTML="";
-                w.forecasts.forEach(f=>{
+                const cardId = `card_${region}_${index}`.replace(/\s/g,'');
+
+                w.forecasts.forEach((f,i)=>{
+
                     const rainClass = f.pop>60?"rain-high":"";
+                    const hiddenStyle = i>=2 ? "display:none;" : "";
+
                     forecastHTML+=`
-                    <div class="day-block ${rainClass}">
+                    <div class="day-block ${rainClass} extra-day" style="${hiddenStyle}">
                     ${f.date}（${f.weekday}）｜
                     ${f.weather}｜
                     ${f.minT}°C-${f.maxT}°C｜
@@ -251,13 +258,37 @@ function renderCourses(filter="全部"){
                     </div>`;
                 });
 
-                html+=`<div class="card"><strong>${course.name}</strong>${forecastHTML}</div>`;
+                forecastHTML+=`
+                <div style="text-align:right; margin-top:6px;">
+                    <button class="toggle-btn" onclick="toggleForecast('${cardId}', this)">展開</button>
+                </div>`;
+
+                html+=`<div class="card" id="${cardId}">
+                        <strong>${course.name}</strong>
+                        ${forecastHTML}
+                       </div>`;
             }
 
         });
     }
 
     document.getElementById("courses").innerHTML=html;
+}
+
+function toggleForecast(cardId, btn){
+
+    const card = document.getElementById(cardId);
+    const extraDays = card.querySelectorAll(".extra-day");
+
+    const isHidden = extraDays[2]?.style.display === "none";
+
+    extraDays.forEach((day,i)=>{
+        if(i>=2){
+            day.style.display = isHidden ? "block" : "none";
+        }
+    });
+
+    btn.innerText = isHidden ? "收合" : "展開";
 }
 
 loadCourses();
