@@ -3,166 +3,107 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Golf Rain Radar</title>
+<title>My Golf Weather</title>
 
 <style>
 body {
     font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-    background:#eef2f7;
-    margin:0;
-    padding:15px;
+    background: #f5f7fa;
+    margin: 0;
+    padding: 15px;
 }
-h2 { text-align:center; }
-
-.region-btn {
-    display:block;
-    width:100%;
-    padding:14px;
-    margin:10px 0;
-    border:none;
-    border-radius:12px;
-    font-size:16px;
-    font-weight:bold;
-    background:#1f6feb;
-    color:white;
-}
-
 .card {
-    background:white;
-    border-radius:14px;
-    padding:14px;
-    margin-top:12px;
-    box-shadow:0 4px 12px rgba(0,0,0,0.08);
+    background: white;
+    border-radius: 15px;
+    padding: 15px;
+    margin-bottom: 15px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
 }
-
-.hourly {
-    display:flex;
-    overflow-x:auto;
-    margin-top:10px;
-}
-
-.hour {
-    min-width:70px;
-    text-align:center;
-    margin-right:8px;
-    font-size:13px;
-}
-
-.rain-low { color:green; }
-.rain-mid { color:orange; }
-.rain-high { color:red; font-weight:bold; }
-
-.back-btn{
-    margin-top:15px;
-    background:#444;
+.title {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 10px;
 }
 </style>
 </head>
 
 <body>
 
-<h2>🏌️ Golf Rain Radar</h2>
-<div id="main"></div>
+<h2>🏌️ 全台高爾夫球場天氣</h2>
+<div id="courses">載入中...</div>
 
 <script>
 
 const API_KEY = "fc4f1698bc8d47ba90757e3c03e713bc";
 
-/* 固定經緯度版本 */
-const regions = {
+const courses = [
 
-"台北市、新北市":[
-{name:"翡翠", lat:25.016, lon:121.649},
-{name:"黃金海岸(北海)", lat:25.291, lon:121.556},
-{name:"濱海", lat:25.272, lon:121.539},
-{name:"大屯", lat:25.191, lon:121.507},
-{name:"台灣(老淡水)", lat:25.172, lon:121.431},
-{name:"揮皇(新淡水)", lat:25.190, lon:121.457},
-{name:"國華", lat:25.140, lon:121.465},
-{name:"八里國際", lat:25.146, lon:121.399},
-{name:"美麗華", lat:25.116, lon:121.409},
-{name:"幸福", lat:25.118, lon:121.421},
-{name:"東華", lat:25.011, lon:121.535},
-{name:"林口", lat:25.080, lon:121.392}
-],
+    // 北部
+    { name: "林口高爾夫球場", lat: 25.0803, lon: 121.3920 },
+    { name: "淡水高爾夫球場", lat: 25.1912, lon: 121.4372 },
+    { name: "台北高爾夫俱樂部", lat: 25.1087, lon: 121.3676 },
+    { name: "東華高爾夫球場", lat: 25.0115, lon: 121.5356 },
+    { name: "桃園高爾夫俱樂部", lat: 24.9896, lon: 121.3100 },
 
-"桃園地區":[
-{name:"台北(桃園)", lat:25.059, lon:121.223},
-{name:"統帥", lat:25.063, lon:121.274},
-{name:"第一", lat:25.066, lon:121.218},
-{name:"永漢", lat:25.062, lon:121.206},
-{name:"長庚", lat:25.050, lon:121.352},
-{name:"東方", lat:25.040, lon:121.270},
-{name:"大溪", lat:24.879, lon:121.296},
-{name:"桃園", lat:24.989, lon:121.310},
-{name:"龍潭", lat:24.863, lon:121.213},
-{name:"揚昇", lat:24.833, lon:121.177},
-{name:"楊梅", lat:24.912, lon:121.145}
-]
+    // 新竹
+    { name: "新竹高爾夫俱樂部", lat: 24.8053, lon: 120.9975 },
 
-};
+    // 苗栗
+    { name: "全國花園鄉村俱樂部", lat: 24.4810, lon: 120.8590 },
 
-async function getWeather(lat, lon){
+    // 台中
+    { name: "台中國際高爾夫俱樂部", lat: 24.1833, lon: 120.6785 },
+
+    // 南投
+    { name: "南峰高爾夫俱樂部", lat: 23.9375, lon: 120.6962 },
+
+    // 嘉義
+    { name: "嘉南高爾夫球場", lat: 23.4596, lon: 120.4396 },
+
+    // 台南
+    { name: "南一高爾夫球場", lat: 23.1467, lon: 120.3533 },
+
+    // 高雄
+    { name: "信誼高爾夫球場", lat: 22.6825, lon: 120.3583 },
+    { name: "高雄高爾夫俱樂部", lat: 22.6411, lon: 120.3386 },
+
+    // 屏東
+    { name: "大鵬灣高爾夫球場", lat: 22.4550, lon: 120.4444 }
+
+];
+
+async function getWeather(course) {
+
     const url =
-    `https://api.openweathermap.org/data/2.5/onecall?lat=${lat}&lon=${lon}&exclude=minutely,daily,alerts&units=metric&appid=${API_KEY}`;
+    `https://api.openweathermap.org/data/2.5/weather?lat=${course.lat}&lon=${course.lon}&units=metric&appid=${API_KEY}`;
+
     const res = await fetch(url);
-    return await res.json();
-}
+    const data = await res.json();
 
-function rainClass(pop){
-    if(pop < 0.3) return "rain-low";
-    if(pop < 0.6) return "rain-mid";
-    return "rain-high";
-}
+    const temp = data.main?.temp ?? "-";
+    const wind = data.wind ? (data.wind.speed * 3.6).toFixed(1) : "-";
+    const clouds = data.clouds?.all ?? "-";
 
-function showRegions(){
-    let html = "";
-    for(const region in regions){
-        html += `<button class="region-btn" onclick="loadRegion('${region}')">${region}</button>`;
-    }
-    document.getElementById("main").innerHTML = html;
-}
-
-async function loadRegion(region){
-
-    document.getElementById("main").innerHTML = "載入中...";
-
-    let html = `<button class="region-btn back-btn" onclick="showRegions()">← 返回區域</button>`;
-
-    for(const course of regions[region]){
-
-        const data = await getWeather(course.lat, course.lon);
-        const current = data.current;
-        const hourly = data.hourly.slice(0,12);
-
-        html += `
+    return `
         <div class="card">
-            <strong>${course.name}</strong><br>
-            🌡 ${current.temp}°C　
-            🌬 ${(current.wind_speed*3.6).toFixed(1)} km/h
-            <div class="hourly">
-        `;
-
-        hourly.forEach(h=>{
-            const hour = new Date(h.dt*1000).getHours();
-            const pop = Math.round(h.pop*100);
-            html += `
-                <div class="hour ${rainClass(h.pop)}">
-                    ${hour}:00<br>
-                    ☔ ${pop}%
-                </div>
-            `;
-        });
-
-        html += `</div></div>`;
-    }
-
-    document.getElementById("main").innerHTML = html;
+            <div class="title">${course.name}</div>
+            🌡 溫度：${temp}°C<br>
+            🌬 風速：${wind} km/h<br>
+            ☁ 雲量：${clouds}%
+        </div>
+    `;
 }
 
-showRegions();
+async function loadCourses() {
+    let html = "";
+    for (const course of courses) {
+        html += await getWeather(course);
+    }
+    document.getElementById("courses").innerHTML = html;
+}
+
+loadCourses();
 
 </script>
-
 </body>
 </html>
