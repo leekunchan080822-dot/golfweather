@@ -3,104 +3,100 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>全台高爾夫球場雙模型天氣系統 2026 PRO</title>
+<title>全台高爾夫球場天氣預報 2026 PRO</title>
 
 <style>
-body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f4f6f9;margin:0;padding:15px;}
-h2{text-align:center;margin-bottom:10px;}
-button{margin:4px;padding:6px 14px;border-radius:20px;border:1px solid #ccc;background:white;cursor:pointer;font-size:13px;}
+body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f5f7fa;margin:0;padding:15px;}
+h2{text-align:center;margin:10px 0;}
+.header{text-align:center;font-size:13px;color:#666;margin-bottom:8px;}
+button{margin:4px;padding:6px 12px;border-radius:20px;border:1px solid #ccc;background:white;cursor:pointer;font-size:13px;}
 button.active{background:#111;color:white;border-color:#111;}
-.card{background:white;border-radius:12px;padding:14px;margin-bottom:14px;box-shadow:0 4px 12px rgba(0,0,0,0.08);}
-.day-block{font-size:13px;margin-top:8px;padding-top:8px;border-top:1px solid #eee;line-height:1.6;}
+.card{background:white;border-radius:12px;padding:14px;margin-bottom:14px;box-shadow:0 3px 10px rgba(0,0,0,0.08);}
+.region-title{font-size:18px;font-weight:bold;margin:25px 0 10px;}
+.day-block{font-size:14px;margin-top:8px;padding-top:8px;border-top:1px solid #eee;line-height:1.7;}
 .rain-high{color:#e11d48;font-weight:bold;}
 .wind-high{color:#d97706;font-weight:bold;}
 .gust-high{color:#b91c1c;font-weight:bold;}
+.toggle-btn{font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid #ccc;background:#f8f8f8;cursor:pointer;}
 .map-link{font-size:12px;color:#2563eb;text-decoration:none;margin-left:6px;}
-.map-link:hover{text-decoration:underline;}
 .loading{text-align:center;padding:30px;color:#666;}
 </style>
 </head>
 
 <body>
 
-<h2>全台高爾夫球場雙模型天氣系統 PRO</h2>
+<div class="header" id="updateTime"></div>
+<h2>全台高爾夫球場精準天氣預報 2026 PRO</h2>
 
-<div id="modelButtons"></div>
-<div id="regionButtons"></div>
+<div id="modelButtons" style="text-align:center;"></div>
+<div id="regionButtons" style="text-align:center;"></div>
 <div id="courses" class="loading">請選擇區域</div>
 
 <script>
 
-/* ======================= 基本設定 ======================= */
+/* ================= 基本設定 ================= */
 
-const CWA_KEY = "CWA-60E4630E-A677-453A-BD76-C74F148C86ED";
-let currentModel = "ECMWF";
-let lastRegion = null;
-let weatherCache = {};
-let cwaRawCache = null;
+const CWA_KEY="CWA-60E4630E-A677-453A-BD76-C74F148C86ED";
+let currentModel="ECMWF";
+let lastRegion=null;
+let cache={};
+let cwaRaw=null;
 
-/* ======================= 工具函式 ======================= */
+document.getElementById("updateTime").innerText=
+"資料更新時間："+new Date().toLocaleString();
 
-function getWeekday(dateStr){
-  const d=new Date(dateStr);
-  return ["週日","週一","週二","週三","週四","週五","週六"][d.getDay()];
+/* ================= 工具 ================= */
+
+function getWeekday(d){
+  return ["週日","週一","週二","週三","週四","週五","週六"][new Date(d).getDay()];
 }
+function avg(a){return a.length? a.reduce((s,v)=>s+v,0)/a.length : 0;}
+function kmh(ms){return Math.round(ms*3.6);}
 
-function kmh(ms){
-  return ms==null ? null : Math.round(ms*3.6);
-}
+/* ================= 球場資料 ================= */
+/* 👉 使用你完整清單即可 */
 
-function avg(arr){
-  if(!arr || !arr.length) return null;
-  return arr.reduce((a,b)=>a+b,0)/arr.length;
-}
-
-/* ======================= 球場資料 ======================= */
-/* ⚠️ 你原本的完整 courses 陣列直接貼在這裡即可 */
-/* 我此處略縮，請保留你完整那份 */
-
-const courses = [
-
+const courses=[
 /* 台北 / 新北 */
-{ region:"台北市 / 新北市", city:"新北市", name:"翡翠高爾夫球場", lat:25.18731, lon:121.68352 },
-{ region:"台北市 / 新北市", city:"新北市", name:"黃金海岸高爾夫球場", lat:25.29174, lon:121.57942 },
-{ region:"台北市 / 新北市", city:"新北市", name:"濱海高爾夫俱樂部", lat:25.28115, lon:121.54718 },
-{ region:"台北市 / 新北市", city:"新北市", name:"台灣（老淡水）高爾夫球場", lat:25.17952, lon:121.42965 },
-{ region:"台北市 / 新北市", city:"新北市", name:"大屯高爾夫球場", lat:25.18642, lon:121.46333 },
-{ region:"台北市 / 新北市", city:"新北市", name:"揮皇（新淡水）高爾夫球場", lat:25.19562, lon:121.46115 },
-{ region:"台北市 / 新北市", city:"新北市", name:"林口高爾夫球場", lat:25.09312, lon:121.34108 },
-{ region:"台北市 / 新北市", city:"新北市", name:"八里國際高爾夫球場", lat:25.10972, lon:121.36532 },
-{ region:"台北市 / 新北市", city:"新北市", name:"美麗華高爾夫球場", lat:25.10173, lon:121.37313 },
-{ region:"台北市 / 新北市", city:"新北市", name:"幸福高爾夫球場", lat:25.11143, lon:121.34419 },
-{ region:"台北市 / 新北市", city:"新北市", name:"東華高爾夫球場", lat:25.11938, lon:121.32532 },
+{ region:"台北市 / 新北市", city:"新北市", name:"翡翠高爾夫球場", lat:25.18733, lon:121.68351 },
+{ region:"台北市 / 新北市", city:"新北市", name:"黃金海岸高爾夫球場", lat:25.29175, lon:121.57945 },
+{ region:"台北市 / 新北市", city:"新北市", name:"濱海高爾夫俱樂部", lat:25.28114, lon:121.54716 },
+{ region:"台北市 / 新北市", city:"新北市", name:"台灣（老淡水）高爾夫球場", lat:25.17646, lon:121.43094 },
+{ region:"台北市 / 新北市", city:"新北市", name:"大屯高爾夫球場", lat:25.18641, lon:121.46332 },
+{ region:"台北市 / 新北市", city:"新北市", name:"揮皇（新淡水）高爾夫球場", lat:25.19561, lon:121.46114 },
+{ region:"台北市 / 新北市", city:"新北市", name:"林口高爾夫球場", lat:25.09311, lon:121.34107 },
+{ region:"台北市 / 新北市", city:"新北市", name:"八里國際高爾夫球場", lat:25.10971, lon:121.36531 },
+{ region:"台北市 / 新北市", city:"新北市", name:"美麗華高爾夫球場", lat:25.10174, lon:121.37314 },
+{ region:"台北市 / 新北市", city:"新北市", name:"幸福高爾夫球場", lat:25.11142, lon:121.34418 },
+{ region:"台北市 / 新北市", city:"新北市", name:"東華高爾夫球場", lat:25.11937, lon:121.32531 },
 
 /* 桃園 */
-{ region:"桃園", city:"桃園市", name:"台北高爾夫球場", lat:25.07195, lon:121.32168 },
-{ region:"桃園", city:"桃園市", name:"統帥高爾夫球場", lat:25.05142, lon:121.32442 },
-{ region:"桃園", city:"桃園市", name:"長庚高爾夫球場", lat:25.05033, lon:121.37891 },
-{ region:"桃園", city:"桃園市", name:"東方高爾夫球場", lat:25.05668, lon:121.34862 },
-{ region:"桃園", city:"桃園市", name:"第一高爾夫球場", lat:25.07417, lon:121.28056 },
-{ region:"桃園", city:"桃園市", name:"永漢高爾夫球場", lat:25.09918, lon:121.28251 },
-{ region:"桃園", city:"桃園市", name:"桃園高爾夫球場", lat:24.89833, lon:121.21806 },
-{ region:"桃園", city:"桃園市", name:"大溪高爾夫球場", lat:24.84362, lon:121.28111 },
-{ region:"桃園", city:"桃園市", name:"龍潭高爾夫球場", lat:24.83889, lon:121.21639 },
-{ region:"桃園", city:"桃園市", name:"揚昇高爾夫鄉村俱樂部", lat:24.87222, lon:121.14445 },
+{ region:"桃園", city:"桃園市", name:"台北高爾夫球場", lat:25.06045, lon:121.32608 },
+{ region:"桃園", city:"桃園市", name:"統帥高爾夫球場", lat:25.05141, lon:121.32441 },
+{ region:"桃園", city:"桃園市", name:"長庚高爾夫球場", lat:25.05032, lon:121.37892 },
+{ region:"桃園", city:"桃園市", name:"東方高爾夫球場", lat:25.05667, lon:121.34861 },
+{ region:"桃園", city:"桃園市", name:"第一高爾夫球場", lat:25.07416, lon:121.28055 },
+{ region:"桃園", city:"桃園市", name:"永漢高爾夫球場", lat:25.09917, lon:121.28252 },
+{ region:"桃園", city:"桃園市", name:"桃園高爾夫球場", lat:24.89832, lon:121.21805 },
+{ region:"桃園", city:"桃園市", name:"大溪高爾夫球場", lat:24.84361, lon:121.28112 },
+{ region:"桃園", city:"桃園市", name:"龍潭高爾夫球場", lat:24.83888, lon:121.21638 },
+{ region:"桃園", city:"桃園市", name:"揚昇高爾夫鄉村俱樂部", lat:24.87221, lon:121.14446 },
 
 /* 宜蘭 / 花蓮 */
-{ region:"花東", city:"宜蘭縣", name:"礁溪高爾夫球場", lat:24.83222, lon:121.75833 },
-{ region:"花東", city:"花蓮縣", name:"花蓮高爾夫球場", lat:23.99862, lon:121.63112 },
+{ region:"花東", city:"宜蘭縣", name:"礁溪高爾夫球場", lat:24.81622, lon:121.72211 },
+{ region:"花東", city:"花蓮縣", name:"花蓮高爾夫球場", lat:23.99861, lon:121.63113 },
 
 /* 新竹 / 苗栗 */
-{ region:"新竹 / 苗栗", city:"新竹縣", name:"再興高爾夫球場", lat:24.88723, lon:121.03751 },
-{ region:"新竹 / 苗栗", city:"新竹縣", name:"新竹（新豐）高爾夫球場", lat:24.89752, lon:120.97889 },
-{ region:"新竹 / 苗栗", city:"苗栗縣", name:"東方之星高爾夫球場", lat:24.71168, lon:121.05056 },
+{ region:"新竹 / 苗栗", city:"新竹縣", name:"再興高爾夫球場", lat:24.88722, lon:121.03752 },
+{ region:"新竹 / 苗栗", city:"新竹縣", name:"新竹（新豐）高爾夫球場", lat:24.89751, lon:120.97888 },
+{ region:"新竹 / 苗栗", city:"苗栗縣", name:"東方之星高爾夫球場", lat:24.71167, lon:121.05055 },
 { region:"新竹 / 苗栗", city:"新竹縣", name:"立益高爾夫球場", lat:24.78667, lon:121.20639 },
 { region:"新竹 / 苗栗", city:"新竹縣", name:"旭陽高爾夫球場", lat:24.78112, lon:121.22694 },
 { region:"新竹 / 苗栗", city:"新竹縣", name:"老爺關西高爾夫球場", lat:24.78056, lon:121.18944 },
 { region:"新竹 / 苗栗", city:"新竹縣", name:"山溪地高爾夫球場", lat:24.79333, lon:121.19222 },
 { region:"新竹 / 苗栗", city:"新竹縣", name:"寶山高爾夫球場", lat:24.73972, lon:121.02639 },
 { region:"新竹 / 苗栗", city:"苗栗縣", name:"皇家高爾夫球場", lat:24.58278, lon:120.89306 },
-{ region:"新竹 / 苗栗", city:"苗栗縣", name:"全國高爾夫球場", lat:24.39473, lon:120.76056 },
+{ region:"新竹 / 苗栗", city:"苗栗縣", name:"全國高爾夫球場", lat:24.39472, lon:120.76055 },
 
 /* 台中 / 彰化 / 南投 */
 { region:"台中 / 彰化 / 南投", city:"臺中市", name:"清泉崗高爾夫球場", lat:24.25472, lon:120.61862 },
@@ -109,22 +105,22 @@ const courses = [
 { region:"台中 / 彰化 / 南投", city:"臺中市", name:"霧峰高爾夫球場", lat:24.03528, lon:120.73028 },
 
 /* 嘉義 / 台南 / 高雄 / 屏東 */
-{ region:"嘉義 / 台南 / 高雄 / 屏東", city:"嘉義縣", name:"棕梠湖高爾夫球場", lat:23.44752, lon:120.52833 },
+{ region:"嘉義 / 台南 / 高雄 / 屏東", city:"嘉義縣", name:"棕梠湖高爾夫球場", lat:23.44751, lon:120.52834 },
 { region:"嘉義 / 台南 / 高雄 / 屏東", city:"臺南市", name:"斑芝花高爾夫俱樂部", lat:23.23806, lon:120.47889 },
 { region:"嘉義 / 台南 / 高雄 / 屏東", city:"嘉義縣", name:"嘉光高爾夫球場", lat:23.47389, lon:120.47251 },
-{ region:"嘉義 / 台南 / 高雄 / 屏東", city:"臺南市", name:"台南高爾夫球場（新化）", lat:23.01889, lon:120.35807 },
+{ region:"嘉義 / 台南 / 高雄 / 屏東", city:"臺南市", name:"台南高爾夫球場（新化）", lat:23.01888, lon:120.35806 },
 { region:"嘉義 / 台南 / 高雄 / 屏東", city:"臺南市", name:"南一高爾夫球場", lat:22.95528, lon:120.32112 },
 { region:"嘉義 / 台南 / 高雄 / 屏東", city:"臺南市", name:"南寶高爾夫球場", lat:23.20167, lon:120.41306 },
 { region:"嘉義 / 台南 / 高雄 / 屏東", city:"高雄市", name:"大崗山高爾夫球場", lat:22.84694, lon:120.38028 },
 { region:"嘉義 / 台南 / 高雄 / 屏東", city:"高雄市", name:"信誼高爾夫球場", lat:22.72140, lon:120.43556 },
 { region:"嘉義 / 台南 / 高雄 / 屏東", city:"高雄市", name:"觀音山高爾夫球場", lat:22.73028, lon:120.38111 },
-{ region:"嘉義 / 台南 / 高雄 / 屏東", city:"屏東縣", name:"屏東高爾夫球場", lat:22.68057, lon:120.50528 }
+{ region:"嘉義 / 台南 / 高雄 / 屏東", city:"屏東縣", name:"屏東高爾夫球場", lat:22.68056, lon:120.50527 }
 
 ];
 
-/* ======================= 區域整理 ======================= */
+/* ================= 區域按鈕 ================= */
 
-const regions = [...new Set(courses.map(c=>c.region))];
+const regions=[...new Set(courses.map(c=>c.region))];
 
 function buildRegionButtons(){
   const container=document.getElementById("regionButtons");
@@ -137,193 +133,167 @@ function buildRegionButtons(){
   });
 }
 
-/* ======================= ECMWF ======================= */
+/* ================= ECMWF ================= */
 
-async function fetchECMWF(course){
-  const cacheKey = `${course.name}_ECMWF`;
-  if(weatherCache[cacheKey]) return weatherCache[cacheKey];
+async function fetchECMWF(c){
+  const key=c.name+"_e";
+  if(cache[key]) return cache[key];
+
+  const url=`https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&hourly=temperature_2m,precipitation_probability,precipitation,wind_speed_10m,wind_gusts_10m&daily=temperature_2m_min,temperature_2m_max&forecast_days=7&timezone=Asia%2FTaipei`;
 
   try{
-    const url=`https://api.open-meteo.com/v1/forecast?latitude=${course.lat}&longitude=${course.lon}&hourly=temperature_2m,precipitation_probability,precipitation,wind_speed_10m,wind_gusts_10m&forecast_days=5&timezone=Asia%2FTaipei`;
     const res=await fetch(url);
     const data=await res.json();
-    const parsed=parseECMWF(data);
-    weatherCache[cacheKey]=parsed;
-    return parsed;
-  }catch(e){
-    console.error("ECMWF錯誤",e);
+    const result=parseECMWF(data);
+    cache[key]=result;
+    return result;
+  }catch{
     return [];
   }
 }
 
 function parseECMWF(data){
-  if(!data?.hourly?.time) return [];
+  if(!data?.hourly) return [];
 
-  const { time,temperature_2m,precipitation_probability,precipitation,wind_speed_10m,wind_gusts_10m } = data.hourly;
-  let days={};
+  const {hourly,daily}=data;
+  const results=[];
 
-  for(let i=0;i<time.length;i++){
-    const [date,t]=time[i].split("T");
-    const hour=parseInt(t.split(":")[0]);  // ✅ 修正
+  for(let d=0; d<daily.time.length; d++){
+    const date=daily.time[d];
+    const am=[], pm=[];
 
-    if(hour<8||hour>=18) continue;
+    hourly.time.forEach((t,i)=>{
+      if(t.startsWith(date)){
+        const h=parseInt(t.substring(11,13));
+        if(h>=8&&h<12) am.push(i);
+        if(h>=12&&h<18) pm.push(i);
+      }
+    });
 
-    if(!days[date]) days[date]={am:{t:[],p:[],r:[],w:[],g:[]},pm:{t:[],p:[],r:[],w:[],g:[]}};
-
-    const bucket=hour<12?"am":"pm";
-
-    days[date][bucket].t.push(temperature_2m[i]);
-    days[date][bucket].p.push(precipitation_probability?.[i]||0);
-    days[date][bucket].r.push(precipitation?.[i]||0);
-    days[date][bucket].w.push(wind_speed_10m?.[i]||0);
-    days[date][bucket].g.push(wind_gusts_10m?.[i]||0);
+    results.push({
+      date,
+      minT:daily.temperature_2m_min[d],
+      maxT:daily.temperature_2m_max[d],
+      am:{
+        pop:Math.round(avg(am.map(i=>hourly.precipitation_probability[i]||0))),
+        rain:avg(am.map(i=>hourly.precipitation[i]||0)).toFixed(1),
+        wind:kmh(avg(am.map(i=>hourly.wind_speed_10m[i]||0))),
+        gust:kmh(avg(am.map(i=>hourly.wind_gusts_10m[i]||0)))
+      },
+      pm:{
+        pop:Math.round(avg(pm.map(i=>hourly.precipitation_probability[i]||0))),
+        rain:avg(pm.map(i=>hourly.precipitation[i]||0)).toFixed(1),
+        wind:kmh(avg(pm.map(i=>hourly.wind_speed_10m[i]||0))),
+        gust:kmh(avg(pm.map(i=>hourly.wind_gusts_10m[i]||0)))
+      }
+    });
   }
 
-  return Object.entries(days).map(([date,val])=>({
-    date,
-    am:buildBlock(val.am),
-    pm:buildBlock(val.pm)
-  })).slice(0,5);
+  return results;
 }
 
-function buildBlock(bucket){
-  return {
-    temp:bucket.t.length?Math.round(avg(bucket.t)):null,
-    rainProb:bucket.p.length?Math.round(avg(bucket.p)):null,
-    rainMM:bucket.r.length?avg(bucket.r).toFixed(1):null,
-    wind:bucket.w.length?kmh(avg(bucket.w)):null,
-    gust:bucket.g.length?kmh(avg(bucket.g)):null
-  };
-}
+/* ================= CWA ================= */
 
-/* ======================= CWA ======================= */
-
-async function fetchCWA(course){
-
-  try{
-    if(!cwaRawCache){
-      const url=`https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization=${CWA_KEY}&format=JSON`;
-      const res=await fetch(url);
-      cwaRawCache=await res.json();
-    }
-
-    if(!cwaRawCache?.records?.location) return [];
-
-    const loc=cwaRawCache.records.location.find(l=>l.locationName===course.city);
-    if(!loc) return [];
-
-    // ✅ 防呆寫法
-    const wxObj = loc.weatherElement.find(e=>e.elementName==="Wx");
-    const popObj = loc.weatherElement.find(e=>e.elementName==="PoP");
-    const minTObj = loc.weatherElement.find(e=>e.elementName==="MinT");
-    const maxTObj = loc.weatherElement.find(e=>e.elementName==="MaxT");
-
-    if(!wxObj || !popObj || !minTObj || !maxTObj) return [];
-
-    const wx = wxObj.time;
-    const pop = popObj.time;
-    const minT = minTObj.time;
-    const maxT = maxTObj.time;
-
-    const length=Math.min(wx.length,pop.length,minT.length,maxT.length);
-
-    let result=[];
-    for(let i=0;i<length;i++){
-      const date=wx[i].startTime.split(" ")[0];
-      const tempAvg=Math.round(
-        (parseInt(minT[i].parameter.parameterName)+
-         parseInt(maxT[i].parameter.parameterName))/2
-      );
-
-      result.push({
-        date,
-        am:{temp:tempAvg,rainProb:parseInt(pop[i].parameter.parameterName),rainMM:null,wind:null,gust:null},
-        pm:{temp:tempAvg,rainProb:parseInt(pop[i].parameter.parameterName),rainMM:null,wind:null,gust:null}
-      });
-    }
-
-    return result.slice(0,5);
-
-  }catch(e){
-    console.error("CWA錯誤",e);
-    return [];
+async function fetchCWA(c){
+  if(!cwaRaw){
+    const url=`https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization=${CWA_KEY}&format=JSON`;
+    const res=await fetch(url);
+    cwaRaw=await res.json();
   }
+
+  const loc=cwaRaw.records.location.find(l=>l.locationName===c.city);
+  if(!loc) return [];
+
+  const minT=loc.weatherElement.find(e=>e.elementName==="MinT").time;
+  const maxT=loc.weatherElement.find(e=>e.elementName==="MaxT").time;
+  const pop=loc.weatherElement.find(e=>e.elementName==="PoP").time;
+
+  return minT.map((_,i)=>({
+    date:minT[i].startTime.split(" ")[0],
+    minT:minT[i].parameter.parameterName,
+    maxT:maxT[i].parameter.parameterName,
+    am:{pop:parseInt(pop[i].parameter.parameterName),rain:"—",wind:"—",gust:"—"},
+    pm:{pop:parseInt(pop[i].parameter.parameterName),rain:"—",wind:"—",gust:"—"}
+  }));
 }
 
-/* ======================= UI ======================= */
+/* ================= UI ================= */
 
 async function loadRegion(region){
-
   lastRegion=region;
   document.getElementById("courses").innerHTML="<div class='loading'>載入中...</div>";
 
   const list=courses.filter(c=>c.region===region);
-
   const forecasts=await Promise.all(
-    list.map(course=> currentModel==="ECMWF"?fetchECMWF(course):fetchCWA(course))
+    list.map(c=>currentModel==="ECMWF"?fetchECMWF(c):fetchCWA(c))
   );
 
   let html="";
-  list.forEach((course,i)=>{
-    html+=buildCard(course,forecasts[i]);
+  html+=`<div class="region-title">${region}</div>`;
+
+  list.forEach((c,i)=>{
+    html+=buildCard(c,forecasts[i],i);
   });
 
   document.getElementById("courses").innerHTML=html;
 }
 
-function buildCard(course,forecast){
+function buildCard(c,forecast,index){
 
-  let daysHTML="";
+  if(!forecast||!forecast.length)
+    return `<div class="card"><b>${c.name}</b><div class="day-block">暫無資料</div></div>`;
 
-  if(forecast && forecast.length){
-    forecast.forEach(day=>{
-      daysHTML+=`
-      <div class="day-block">
-        <b>${day.date} (${getWeekday(day.date)})</b><br>
-        🌅 08–12：${renderBlock(day.am)}<br>
-        🌇 12–18：${renderBlock(day.pm)}
-      </div>`;
-    });
-  }else{
-    daysHTML=`<div class="day-block">暫無資料</div>`;
-  }
+  let content="";
 
-  return`
-  <div class="card">
-    <b>${course.name}</b>
-    <a class="map-link" href="https://www.google.com/maps?q=${course.lat},${course.lon}" target="_blank">📍 地圖</a>
-    <a class="map-link" href="https://www.google.com/maps/dir/?api=1&destination=${course.lat},${course.lon}" target="_blank">🚗 導航</a>
-    ${daysHTML}
+  forecast.forEach((f,i)=>{
+    const hidden=i>=2?"display:none;":"";
+    const rainHigh=f.am.rain>=1?"rain-high":"";
+    const windHigh=f.am.wind>=30?"wind-high":"";
+    const gustHigh=f.am.gust>=45?"gust-high":"";
+
+    content+=`
+    <div class="day-block extra" style="${hidden}">
+      <b>${f.date}（${getWeekday(f.date)}）</b><br>
+      溫度 ${f.minT}°C - ${f.maxT}°C<br>
+      08–12 ☔ <span class="${rainHigh}">${f.am.rain}mm (${f.am.pop}%)</span>
+      ｜🌬 <span class="${windHigh}">${f.am.wind}km/h</span>
+      ｜💨 <span class="${gustHigh}">${f.am.gust}</span><br>
+      12–18 ☔ ${f.pm.rain}mm (${f.pm.pop}%)
+      ｜🌬 ${f.pm.wind}km/h
+      ｜💨 ${f.pm.gust}
+    </div>`;
+  });
+
+  content+=`
+  <div style="text-align:right;margin-top:6px;">
+    <button class="toggle-btn" onclick="toggle(this)">展開</button>
+    <a class="map-link" target="_blank"
+      href="https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lon}">導航</a>
   </div>`;
+
+  return `<div class="card"><b>${c.name}</b>${content}</div>`;
 }
 
-function renderBlock(block){
-  if(!block) return "—";
-
-  const rainClass=(block.rainProb!=null && block.rainProb>=50)?"rain-high":"";
-  const windClass=(block.wind!=null && block.wind>=30)?"wind-high":"";
-  const gustClass=(block.gust!=null && block.gust>=50)?"gust-high":"";
-
-  return`
-    🌡 ${block.temp??"—"}°C
-    ☔ <span class="${rainClass}">${block.rainProb??"—"}%</span>
-    🌧 ${block.rainMM??"—"}mm
-    🌬 <span class="${windClass}">${block.wind??"—"}</span>km/h
-    💨 <span class="${gustClass}">${block.gust??"—"}</span>km/h
-  `;
+function toggle(btn){
+  const card=btn.closest(".card");
+  const extra=card.querySelectorAll(".extra");
+  const hidden=extra[2]?.style.display==="none";
+  extra.forEach((d,i)=>{
+    if(i>=2) d.style.display=hidden?"block":"none";
+  });
+  btn.innerText=hidden?"收合":"展開";
 }
 
-/* ======================= 模型按鈕 ======================= */
+/* ================= 模型按鈕 ================= */
 
 function buildModelButtons(){
   const container=document.getElementById("modelButtons");
-  container.innerHTML="";
-  ["ECMWF","CWA"].forEach(model=>{
+  ["ECMWF","CWA"].forEach(m=>{
     const btn=document.createElement("button");
-    btn.innerText=model;
-    btn.className=model===currentModel?"active":"";
+    btn.innerText=m;
+    btn.className=m===currentModel?"active":"";
     btn.onclick=()=>{
-      currentModel=model;
+      currentModel=m;
       buildModelButtons();
       if(lastRegion) loadRegion(lastRegion);
     };
@@ -331,7 +301,7 @@ function buildModelButtons(){
   });
 }
 
-/* ======================= 啟動 ======================= */
+/* ================= 啟動 ================= */
 
 buildModelButtons();
 buildRegionButtons();
