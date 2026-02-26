@@ -1,0 +1,106 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Golf Weather</title>
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #eef2f7;
+    margin: 0;
+    padding: 15px;
+}
+h2 {
+    text-align: center;
+}
+.card {
+    background: white;
+    border-radius: 15px;
+    padding: 18px;
+    margin-bottom: 15px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+}
+.title {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+.good { color: #1aa54a; font-weight: bold; }
+.warning { color: #ff9800; font-weight: bold; }
+.bad { color: #e53935; font-weight: bold; }
+.small {
+    font-size: 14px;
+    color: #666;
+}
+</style>
+</head>
+<body>
+
+<h2>🏌️ My Golf Weather</h2>
+<div id="courses"></div>
+
+<script>
+
+const API_KEY = "fc4f1698bc8d47ba90757e3c03e713bc";
+
+const courses = [
+    { name: "林口高爾夫球場", lat: 25.0803, lon: 121.3920 },
+    { name: "桃園高爾夫俱樂部", lat: 24.9896, lon: 121.3100 },
+    { name: "東華高爾夫球場", lat: 25.0115, lon: 121.5356 }
+];
+
+async function getWeather(course) {
+    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${course.lat}&lon=${course.lon}&units=metric&appid=${API_KEY}`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    const temp = data.main.temp;
+    const feels = data.main.feels_like;
+    const wind = data.wind.speed * 3.6;
+    const windDir = data.wind.deg;
+    const clouds = data.clouds.all;
+
+    let status = "";
+    let statusClass = "";
+
+    if (wind < 20 && clouds < 50) {
+        status = "🟢 適合開球";
+        statusClass = "good";
+    } else if (wind < 30 && clouds < 70) {
+        status = "🟡 注意風勢";
+        statusClass = "warning";
+    } else {
+        status = "🔴 建議觀察";
+        statusClass = "bad";
+    }
+
+    return `
+        <div class="card">
+            <div class="title">${course.name}</div>
+            🌡 溫度：${temp}°C<br>
+            🌡 體感：${feels}°C<br>
+            🌬 風速：${wind.toFixed(1)} km/h<br>
+            🧭 風向：${windDir}°<br>
+            ☁ 雲量：${clouds}%<br>
+            <div class="small">※ 風速20km/h以上會影響選桿</div><br>
+            <div class="${statusClass}">${status}</div>
+        </div>
+    `;
+}
+
+async function loadCourses() {
+    let html = "";
+    for (const course of courses) {
+        html += await getWeather(course);
+    }
+    document.getElementById("courses").innerHTML = html;
+}
+
+loadCourses();
+
+</script>
+</body>
+</html>
+initial version
