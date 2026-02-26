@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>711-台灣高爾夫球場天氣</title>
+<title>711專用-高爾夫球場天氣</title>
 
 <style>
 body {
@@ -24,6 +24,7 @@ h2 {
     margin: 10px 0;
 }
 
+/* 區域按鈕 */
 .region-buttons {
     text-align: center;
     margin: 15px 0;
@@ -45,10 +46,17 @@ h2 {
     border-color: #333;
 }
 
+/* 區域標題 */
 .region-title {
     font-size: 18px;
     font-weight: bold;
     margin: 25px 0 10px;
+}
+
+.region-title.active-region {
+    color: #007aff;
+    border-left: 4px solid #007aff;
+    padding-left: 8px;
 }
 
 .card {
@@ -79,7 +87,7 @@ h2 {
 <div class="header-info" id="dateInfo"></div>
 <div class="header-info">資料來源：中央氣象局（CWA）</div>
 
-<h2>711-台灣高爾夫球場天氣</h2>
+<h2>711專用-高爾夫球場天氣</h2>
 
 <div class="region-buttons" id="regionButtons"></div>
 
@@ -101,7 +109,6 @@ document.getElementById("dateInfo").innerText =
 const API_KEY = "CWA-60E4630E-A677-453A-BD76-C74F148C86ED";
 
 /* ===== 悅來分類完整球場清單 ===== */
-
 const courses = [
 
 /* 台北市 / 新北市 */
