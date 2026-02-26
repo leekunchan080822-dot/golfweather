@@ -35,7 +35,9 @@ h2 { text-align:center; margin:10px 0;}
 /* 日期 */
 const today = new Date();
 document.getElementById("dateInfo").innerText =
-"資料更新日期：" + today.getFullYear()+"/"+(today.getMonth()+1).toString().padStart(2,"0")+"/"+today.getDate().toString().padStart(2,"0");
+"資料更新日期：" + today.getFullYear()+"/"+
+(today.getMonth()+1).toString().padStart(2,"0")+"/"+
+today.getDate().toString().padStart(2,"0");
 
 /* API KEY */
 const API_KEY = "CWA-60E4630E-A677-453A-BD76-C74F148C86ED";
@@ -108,7 +110,7 @@ const courses = [
 { region:"嘉義 / 台南 / 高雄 / 屏東", name:"屏東高爾夫球場", city:"屏東縣" }
 ];
 
-/* ===== 天氣 API 解析（08–12 / 12–18 分開） ===== */
+/* ===== 天氣 API 解析（穩定重疊判斷版） ===== */
 async function getWeeklyWeather(city){
 
     city = normalizeCity(city);
@@ -134,9 +136,9 @@ async function getWeeklyWeather(city){
 
         weatherTimes.forEach((w,i)=>{
 
-            const start = w.StartTime;
-            const end   = w.EndTime;
-            const date  = start.substring(0,10);
+            const start = new Date(w.StartTime);
+            const end   = new Date(w.EndTime);
+            const date  = w.StartTime.substring(0,10);
 
             if(!daily[date]){
                 daily[date] = {
@@ -151,21 +153,36 @@ async function getWeeklyWeather(city){
             const rainRaw = popTimes[i]?.ElementValue[0]?.ProbabilityOfPrecipitation;
             const rainVal = isNaN(parseInt(rainRaw)) ? 0 : parseInt(rainRaw);
 
-            const startHour = parseInt(start.substring(11,13));
-            const endHour   = parseInt(end.substring(11,13));
+            const baseDate = new Date(date+"T00:00:00");
 
-            // 00–12 對應 08–12
-            if(startHour === 0 && endHour === 12){
+            const morningStart = new Date(baseDate);
+            morningStart.setHours(8,0,0,0);
+
+            const noonStart = new Date(baseDate);
+            noonStart.setHours(12,0,0,0);
+
+            const afternoonEnd = new Date(baseDate);
+            afternoonEnd.setHours(18,0,0,0);
+
+            /* 判斷重疊 08–12 */
+            if(start < noonStart && end > morningStart){
                 daily[date].popMorning = rainVal;
             }
 
-            // 12–24 對應 12–18
-            if(startHour === 12){
+            /* 判斷重疊 12–18 */
+            if(start < afternoonEnd && end > noonStart){
                 daily[date].popAfternoon = rainVal;
             }
 
-            daily[date].maxT = Math.max(daily[date].maxT, parseInt(maxT[i].ElementValue[0].MaxTemperature));
-            daily[date].minT = Math.min(daily[date].minT, parseInt(minT[i].ElementValue[0].MinTemperature));
+            daily[date].maxT = Math.max(
+                daily[date].maxT,
+                parseInt(maxT[i].ElementValue[0].MaxTemperature)
+            );
+
+            daily[date].minT = Math.min(
+                daily[date].minT,
+                parseInt(minT[i].ElementValue[0].MinTemperature)
+            );
 
         });
 
@@ -182,6 +199,7 @@ async function getWeeklyWeather(city){
         return {forecasts};
 
     }catch(e){
+        console.log(e);
         return {error:true};
     }
 }
