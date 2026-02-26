@@ -34,62 +34,35 @@ body {
 
 <script>
 
-const API_KEY = "fc4f1698bc8d47ba90757e3c03e713bc";
+const API_KEY = "你的APIKEY貼這裡";
 
 const courses = [
-
-    // 北部
     { name: "林口高爾夫球場", lat: 25.0803, lon: 121.3920 },
-    { name: "淡水高爾夫球場", lat: 25.1912, lon: 121.4372 },
-    { name: "台北高爾夫俱樂部", lat: 25.1087, lon: 121.3676 },
-    { name: "東華高爾夫球場", lat: 25.0115, lon: 121.5356 },
     { name: "桃園高爾夫俱樂部", lat: 24.9896, lon: 121.3100 },
-
-    // 新竹
     { name: "新竹高爾夫俱樂部", lat: 24.8053, lon: 120.9975 },
-
-    // 苗栗
-    { name: "全國花園鄉村俱樂部", lat: 24.4810, lon: 120.8590 },
-
-    // 台中
     { name: "台中國際高爾夫俱樂部", lat: 24.1833, lon: 120.6785 },
-
-    // 南投
-    { name: "南峰高爾夫俱樂部", lat: 23.9375, lon: 120.6962 },
-
-    // 嘉義
-    { name: "嘉南高爾夫球場", lat: 23.4596, lon: 120.4396 },
-
-    // 台南
     { name: "南一高爾夫球場", lat: 23.1467, lon: 120.3533 },
-
-    // 高雄
-    { name: "信誼高爾夫球場", lat: 22.6825, lon: 120.3583 },
-    { name: "高雄高爾夫俱樂部", lat: 22.6411, lon: 120.3386 },
-
-    // 屏東
-    { name: "大鵬灣高爾夫球場", lat: 22.4550, lon: 120.4444 }
-
+    { name: "高雄高爾夫俱樂部", lat: 22.6411, lon: 120.3386 }
 ];
 
 async function getWeather(course) {
 
     const url =
-    `https://api.openweathermap.org/data/2.5/weather?lat=${course.lat}&lon=${course.lon}&units=metric&appid=${API_KEY}`;
+    `https://api.openweathermap.org/data/2.5/onecall?lat=${course.lat}&lon=${course.lon}&exclude=minutely,daily,alerts&units=metric&appid=${API_KEY}`;
 
     const res = await fetch(url);
     const data = await res.json();
 
-    const temp = data.main?.temp ?? "-";
-    const wind = data.wind ? (data.wind.speed * 3.6).toFixed(1) : "-";
-    const clouds = data.clouds?.all ?? "-";
+    const temp = data.current.temp;
+    const wind = (data.current.wind_speed * 3.6).toFixed(1);
+    const rainChance = Math.round(data.hourly[0].pop * 100);
 
     return `
         <div class="card">
             <div class="title">${course.name}</div>
             🌡 溫度：${temp}°C<br>
             🌬 風速：${wind} km/h<br>
-            ☁ 雲量：${clouds}%
+            🌧 降雨機率：${rainChance}%
         </div>
     `;
 }
