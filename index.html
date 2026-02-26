@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>台灣高爾夫天氣儀表板</title>
+<title>台灣高爾夫天氣</title>
 
 <style>
 body {
@@ -29,7 +29,6 @@ h2 {
     padding: 15px;
     margin-bottom: 12px;
     box-shadow: 0 5px 15px rgba(0,0,0,0.08);
-    transition: 0.3s;
 }
 
 .card.rain {
@@ -50,106 +49,58 @@ h2 {
 
 <body>
 
-<h2>🏌️ 台灣高爾夫天氣儀表板</h2>
+<h2>🏌️ 台灣高爾夫球場天氣</h2>
 <div id="courses">載入中...</div>
 
 <script>
 
-const API_KEY = "CWA-60E4630E-A677-453A-BD76-C74F148C86ED
-";
+const API_KEY = "CWA-60E4630E-A677-453A-BD76-C74F148C86ED";
 
 /* ================= 球場清單 ================= */
 
 const courses = [
-
-/* ================= 北部 ================= */
-
-/* 基隆 */
 { region: "北部", name: "基隆高爾夫球場", city: "基隆市" },
-
-/* 新北 */
 { region: "北部", name: "大屯高爾夫球場", city: "新北市" },
 { region: "北部", name: "林口高爾夫球場", city: "新北市" },
 { region: "北部", name: "淡水高爾夫球場", city: "新北市" },
-
-/* 桃園 */
 { region: "北部", name: "台北高爾夫俱樂部", city: "桃園市" },
 { region: "北部", name: "桃園高爾夫俱樂部", city: "桃園市" },
 { region: "北部", name: "東華高爾夫俱樂部", city: "桃園市" },
 { region: "北部", name: "揚昇高爾夫球場", city: "桃園市" },
 { region: "北部", name: "長庚高爾夫球場", city: "桃園市" },
 { region: "北部", name: "再興高爾夫球場", city: "桃園市" },
-
-/* 新竹 */
 { region: "北部", name: "新竹高爾夫俱樂部", city: "新竹縣" },
 { region: "北部", name: "寶山高爾夫球場", city: "新竹縣" },
 
-
-
-/* ================= 中部 ================= */
-
-/* 苗栗 */
 { region: "中部", name: "苗栗高爾夫球場", city: "苗栗縣" },
 { region: "中部", name: "全國花園鄉村俱樂部", city: "苗栗縣" },
-
-/* 台中 */
 { region: "中部", name: "台中國際高爾夫俱樂部", city: "臺中市" },
 { region: "中部", name: "霧峰高爾夫球場", city: "臺中市" },
 { region: "中部", name: "清泉崗高爾夫球場", city: "臺中市" },
-
-/* 彰化 */
 { region: "中部", name: "彰化高爾夫球場", city: "彰化縣" },
-
-/* 南投 */
 { region: "中部", name: "南投高爾夫俱樂部", city: "南投縣" },
 
-
-
-/* ================= 南部 ================= */
-
-/* 嘉義 */
 { region: "南部", name: "嘉義高爾夫球場", city: "嘉義市" },
 { region: "南部", name: "棕梠湖高爾夫球場", city: "嘉義縣" },
-
-/* 台南 */
 { region: "南部", name: "台南高爾夫俱樂部", city: "臺南市" },
 { region: "南部", name: "南一高爾夫球場", city: "臺南市" },
 { region: "南部", name: "南寶高爾夫球場", city: "臺南市" },
 { region: "南部", name: "斑芝花高爾夫球場", city: "臺南市" },
-
-/* 高雄 */
 { region: "南部", name: "高雄高爾夫俱樂部", city: "高雄市" },
 { region: "南部", name: "信誼高爾夫球場", city: "高雄市" },
 { region: "南部", name: "觀音山高爾夫球場", city: "高雄市" },
 { region: "南部", name: "大崗山高爾夫球場", city: "高雄市" },
-
-/* 屏東 */
 { region: "南部", name: "屏東高爾夫球場", city: "屏東縣" },
 
-
-
-/* ================= 東部 ================= */
-
-/* 花蓮 */
 { region: "東部", name: "花蓮高爾夫球場", city: "花蓮縣" },
-
-/* 台東 */
 { region: "東部", name: "台東高爾夫球場", city: "臺東縣" },
 
-
-
-/* ================= 離島 ================= */
-
-/* 澎湖 */
 { region: "離島", name: "澎湖高爾夫球場", city: "澎湖縣" },
-
-/* 金門 */
 { region: "離島", name: "金門高爾夫球場", city: "金門縣" }
-
 ];
 
 
-/* ================= 天氣抓取（單縣市只抓一次） ================= */
+/* ================= 取得天氣 ================= */
 
 async function getWeather(city) {
 
@@ -162,24 +113,23 @@ async function getWeather(city) {
         const data = await res.json();
 
         if (!data.records?.location?.length) {
-            return { error: "查無資料" };
+            return { error: true };
         }
 
         const location = data.records.location[0];
 
-        const getElement = (name) =>
+        const get = (name) =>
             location.weatherElement.find(e => e.elementName === name);
 
-        const weather = getElement("Wx")?.time[0].parameter.parameterName ?? "-";
-        const pop = getElement("PoP")?.time[0].parameter.parameterName ?? "-";
-        const minT = getElement("MinT")?.time[0].parameter.parameterName ?? "-";
-        const maxT = getElement("MaxT")?.time[0].parameter.parameterName ?? "-";
-        const ci = getElement("CI")?.time[0].parameter.parameterName ?? "-";
-
-        return { weather, pop, minT, maxT, ci };
+        return {
+            weather: get("Wx")?.time[0].parameter.parameterName ?? "-",
+            pop: get("PoP")?.time[0].parameter.parameterName ?? "-",
+            minT: get("MinT")?.time[0].parameter.parameterName ?? "-",
+            maxT: get("MaxT")?.time[0].parameter.parameterName ?? "-"
+        };
 
     } catch {
-        return { error: "讀取失敗" };
+        return { error: true };
     }
 }
 
@@ -188,18 +138,16 @@ async function getWeather(city) {
 
 async function loadCourses() {
 
-    // 取得所有不重複縣市
     const cities = [...new Set(courses.map(c => c.city))];
 
-    // 並行抓天氣
     const weatherData = {};
+
     await Promise.all(
         cities.map(async city => {
             weatherData[city] = await getWeather(city);
         })
     );
 
-    // 分區整理
     const grouped = courses.reduce((acc, course) => {
         if (!acc[course.region]) acc[course.region] = [];
         acc[course.region].push(course);
@@ -220,24 +168,25 @@ async function loadCourses() {
 
             const w = weatherData[course.city];
 
-            if (w.error) {
+            if (!w || w.error) {
                 html += `
                     <div class="card">
                         <div class="title">${course.name}</div>
-                        <div class="error">${w.error}</div>
+                        <div class="error">天氣資料讀取失敗</div>
                     </div>
                 `;
             } else {
 
-                const rainClass = parseInt(w.pop) > 50 ? "rain" : "";
+                const popValue = parseInt(w.pop);
+                const rainClass =
+                    !isNaN(popValue) && popValue > 50 ? "rain" : "";
 
                 html += `
                     <div class="card ${rainClass}">
                         <div class="title">${course.name}</div>
                         🌡 溫度：${w.minT}°C - ${w.maxT}°C<br>
                         🌧 降雨機率：${w.pop}%<br>
-                        ☁ 天氣：${w.weather}<br>
-                        🌬 體感：${w.ci}
+                        ☁ 天氣：${w.weather}
                     </div>
                 `;
             }
