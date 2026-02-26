@@ -6,80 +6,17 @@
 <title>711專用-全台高爾夫球場一週天氣預報</title>
 
 <style>
-body {
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-    background: #f5f7fa;
-    margin: 0;
-    padding: 15px;
-}
-
-.header-info {
-    text-align: center;
-    font-size: 14px;
-    color: #555;
-}
-
-h2 {
-    text-align: center;
-    margin: 10px 0;
-}
-
-.region-buttons {
-    text-align: center;
-    margin: 15px 0;
-}
-
-.region-buttons button {
-    margin: 4px;
-    padding: 6px 12px;
-    border-radius: 20px;
-    border: 1px solid #ccc;
-    background: white;
-    cursor: pointer;
-    font-size: 13px;
-}
-
-.region-buttons button.active {
-    background: #333;
-    color: white;
-    border-color: #333;
-}
-
-.region-title {
-    font-size: 18px;
-    font-weight: bold;
-    margin: 25px 0 10px;
-}
-
-.region-title.active-region {
-    color: #007aff;
-    border-left: 4px solid #007aff;
-    padding-left: 8px;
-}
-
-.card {
-    background: white;
-    border-radius: 12px;
-    padding: 12px;
-    margin-bottom: 12px;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.08);
-}
-
-.day-block {
-    font-size: 13px;
-    margin-top: 6px;
-    padding-top: 6px;
-    border-top: 1px solid #eee;
-}
-
-.rain-high {
-    color: red;
-    font-weight: bold;
-}
-
-.error {
-    color: red;
-}
+body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background:#f5f7fa; margin:0; padding:15px;}
+.header-info { text-align:center; font-size:14px; color:#555;}
+h2 { text-align:center; margin:10px 0;}
+.region-buttons { text-align:center; margin:15px 0;}
+.region-buttons button { margin:4px; padding:6px 12px; border-radius:20px; border:1px solid #ccc; background:white; cursor:pointer; font-size:13px;}
+.region-buttons button.active { background:#333; color:white; border-color:#333;}
+.region-title { font-size:18px; font-weight:bold; margin:25px 0 10px;}
+.card { background:white; border-radius:12px; padding:12px; margin-bottom:12px; box-shadow:0 3px 10px rgba(0,0,0,0.08);}
+.day-block { font-size:13px; margin-top:6px; padding-top:6px; border-top:1px solid #eee;}
+.rain-high { color:red; font-weight:bold;}
+.error { color:red;}
 </style>
 </head>
 
@@ -87,7 +24,6 @@ h2 {
 
 <div class="header-info" id="dateInfo"></div>
 <div class="header-info">資料來源：中央氣象署（CWA）</div>
-
 <h2>711專用-全台高爾夫球場一週天氣預報</h2>
 
 <div class="region-buttons" id="regionButtons"></div>
@@ -95,32 +31,27 @@ h2 {
 
 <script>
 
-/* ===== 更新日期 ===== */
+/* 日期 */
 const today = new Date();
-const dateStr =
-    today.getFullYear() + "/" +
-    (today.getMonth()+1).toString().padStart(2,"0") + "/" +
-    today.getDate().toString().padStart(2,"0");
-
 document.getElementById("dateInfo").innerText =
-    "資料更新日期：" + dateStr;
+"資料更新日期：" + today.getFullYear()+"/"+(today.getMonth()+1).toString().padStart(2,"0")+"/"+today.getDate().toString().padStart(2,"0");
 
-/* ===== API KEY ===== */
+/* API KEY */
 const API_KEY = "CWA-60E4630E-A677-453A-BD76-C74F148C86ED";
 
-/* ===== 台轉臺 ===== */
+/* 台轉臺 */
 function normalizeCity(city){
     return city.replace("台","臺");
 }
 
-/* ===== 星期轉換 ===== */
+/* 星期 */
 function getWeekday(dateStr){
     const d = new Date(dateStr);
     const arr = ["週日","週一","週二","週三","週四","週五","週六"];
     return arr[d.getDay()];
 }
 
-/* ===== 球場清單 ===== */
+/* 球場 */
 const courses = [
 { region:"台北市 / 新北市", name:"翡翠高爾夫球場", city:"新北市" },
 { region:"台北市 / 新北市", name:"黃金海岸（北海）高爾夫球場", city:"新北市" },
@@ -176,147 +107,105 @@ const courses = [
 { region:"嘉義 / 台南 / 高雄 / 屏東", name:"屏東高爾夫球場", city:"屏東縣" }
 ];
 
-/* ===== 取得一週預報 ===== */
-async function getWeeklyWeather(city) {
+/* 核心解析 */
+async function getWeeklyWeather(city){
 
     city = normalizeCity(city);
 
     const url =
     `https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-D0047-091?Authorization=${API_KEY}&LocationName=${city}`;
 
-    try {
+    try{
         const res = await fetch(url);
         const data = await res.json();
 
-        if (data.success === "false") return { error:true };
-        if (!data.records?.locations?.[0]?.location?.length)
-            return { error:true };
+        if(!data.records?.Locations?.length) return {error:true};
 
-        const location = data.records.locations[0].location[0];
-        const elements = location.weatherElement;
+        const location = data.records.Locations[0].Location[0];
+        const elements = location.WeatherElement;
 
-        const wx = elements.find(e=>e.elementName==="Wx").time;
-        const pop = elements.find(e=>e.elementName==="PoP12h").time;
-        const minT = elements.find(e=>e.elementName==="MinT").time;
-        const maxT = elements.find(e=>e.elementName==="MaxT").time;
+        const weather = elements.find(e=>e.ElementName==="天氣現象").Time;
+        const pop = elements.find(e=>e.ElementName==="12小時降雨機率").Time;
+        const maxT = elements.find(e=>e.ElementName==="最高溫度").Time;
+        const minT = elements.find(e=>e.ElementName==="最低溫度").Time;
 
-        let forecasts = [];
+        let daily = {};
 
-        for (let i=0; i<7; i++) {
+        weather.forEach((w,i)=>{
 
-            const date = wx[i].startTime.substring(0,10);
-            const rainValue = parseInt(pop[i].elementValue[0].value);
+            const date = w.StartTime.substring(0,10);
 
-            forecasts.push({
-                date,
-                weekday: getWeekday(date),
-                weather: wx[i].elementValue[0].value,
-                pop: rainValue,
-                minT: minT[i].elementValue[0].value,
-                maxT: maxT[i].elementValue[0].value
-            });
-        }
+            if(!daily[date]){
+                daily[date]={
+                    weather:w.ElementValue[0].Weather,
+                    pop:0,
+                    maxT:0,
+                    minT:100
+                };
+            }
 
-        return { forecasts };
+            const rainRaw = pop[i]?.ElementValue[0]?.ProbabilityOfPrecipitation;
+            const rain = isNaN(parseInt(rainRaw)) ? 0 : parseInt(rainRaw);
 
-    } catch(e) {
+            daily[date].pop = Math.max(daily[date].pop, rain);
+            daily[date].maxT = Math.max(daily[date].maxT, parseInt(maxT[i].ElementValue[0].MaxTemperature));
+            daily[date].minT = Math.min(daily[date].minT, parseInt(minT[i].ElementValue[0].MinTemperature));
+        });
+
+        const forecasts = Object.keys(daily).slice(0,7).map(date=>({
+            date,
+            weekday:getWeekday(date),
+            weather:daily[date].weather,
+            pop:daily[date].pop,
+            maxT:daily[date].maxT,
+            minT:daily[date].minT
+        }));
+
+        return {forecasts};
+
+    }catch(e){
         console.log(e);
-        return { error:true };
+        return {error:true};
     }
 }
 
-/* ===== 區域按鈕 ===== */
-function createRegionButtons() {
-    const regions = ["全部", ...new Set(courses.map(c=>c.region))];
-    const container = document.getElementById("regionButtons");
-
-    regions.forEach(region=>{
-        const btn=document.createElement("button");
-        btn.innerText=region;
-        btn.onclick=()=>filterRegion(region);
-        container.appendChild(btn);
-    });
-
-    container.firstChild.classList.add("active");
-}
-
-function filterRegion(selected){
-    const buttons=document.querySelectorAll(".region-buttons button");
-    buttons.forEach(btn=>{
-        btn.classList.remove("active");
-        if(btn.innerText===selected) btn.classList.add("active");
-    });
-    renderCourses(selected);
-}
-
+/* UI */
 let weatherCache={};
 
 async function loadCourses(){
     const cities=[...new Set(courses.map(c=>c.city))];
-
-    await Promise.all(
-        cities.map(async city=>{
-            weatherCache[city]=await getWeeklyWeather(city);
-        })
-    );
-
-    createRegionButtons();
-    renderCourses("全部");
+    await Promise.all(cities.map(async city=>{
+        weatherCache[city]=await getWeeklyWeather(city);
+    }));
+    renderCourses();
 }
 
-function renderCourses(filter){
+function renderCourses(){
     let html="";
-    const grouped=courses.reduce((acc,course)=>{
-        if(filter!=="全部" && course.region!==filter) return acc;
-        if(!acc[course.region]) acc[course.region]=[];
-        acc[course.region].push(course);
-        return acc;
-    },{});
-
-    for(const region in grouped){
-
-        html+=`<div class="region-title">${region}</div>`;
-
-        grouped[region].forEach(course=>{
-
-            const w=weatherCache[course.city];
-
-            if(!w || w.error){
-                html+=`
-                <div class="card">
-                    <strong>${course.name}</strong>
-                    <div class="error">讀取失敗</div>
+    courses.forEach(course=>{
+        const w=weatherCache[course.city];
+        if(!w || w.error){
+            html+=`<div class="card"><strong>${course.name}</strong><div class="error">讀取失敗</div></div>`;
+        }else{
+            let forecastHTML="";
+            w.forecasts.forEach(f=>{
+                const rainClass = f.pop>60?"rain-high":"";
+                forecastHTML+=`
+                <div class="day-block ${rainClass}">
+                ${f.date}（${f.weekday}）｜
+                ${f.weather}｜
+                ${f.minT}°C-${f.maxT}°C｜
+                降雨 ${f.pop}%
                 </div>`;
-            }else{
-
-                let forecastHTML="";
-
-                w.forecasts.forEach(f=>{
-                    const rainClass = f.pop > 60 ? "rain-high" : "";
-                    forecastHTML+=`
-                    <div class="day-block ${rainClass}">
-                        ${f.date}（${f.weekday}）｜
-                        ${f.weather}｜
-                        ${f.minT}°C-${f.maxT}°C｜
-                        降雨 ${f.pop}%
-                    </div>`;
-                });
-
-                html+=`
-                <div class="card">
-                    <strong>${course.name}</strong>
-                    ${forecastHTML}
-                </div>`;
-            }
-        });
-    }
-
+            });
+            html+=`<div class="card"><strong>${course.name}</strong>${forecastHTML}</div>`;
+        }
+    });
     document.getElementById("courses").innerHTML=html;
 }
 
 loadCourses();
 
 </script>
-
 </body>
 </html>
