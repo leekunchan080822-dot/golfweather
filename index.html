@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>My Golf Weather</title>
+<title>台灣高爾夫天氣</title>
 
 <style>
 body {
@@ -29,54 +29,63 @@ body {
 
 <body>
 
-<h2>🏌️ 全台高爾夫球場天氣</h2>
+<h2>🏌️ 台灣高爾夫球場天氣</h2>
 <div id="courses">載入中...</div>
 
 <script>
 
-const API_KEY = "你的APIKEY貼這裡";
+const API_KEY = "你的新中央氣象署KEY";
 
 const courses = [
-    { name: "林口高爾夫球場", lat: 25.0803, lon: 121.3920 },
-    { name: "桃園高爾夫俱樂部", lat: 24.9896, lon: 121.3100 },
-    { name: "新竹高爾夫俱樂部", lat: 24.8053, lon: 120.9975 },
-    { name: "台中國際高爾夫俱樂部", lat: 24.1833, lon: 120.6785 },
-    { name: "南一高爾夫球場", lat: 23.1467, lon: 120.3533 },
-    { name: "高雄高爾夫俱樂部", lat: 22.6411, lon: 120.3386 }
+    { name: "林口高爾夫球場", city: "新北市" },
+    { name: "桃園高爾夫俱樂部", city: "桃園市" },
+    { name: "新竹高爾夫俱樂部", city: "新竹縣" },
+    { name: "台中國際高爾夫俱樂部", city: "臺中市" },
+    { name: "南一高爾夫球場", city: "臺南市" },
+    { name: "高雄高爾夫俱樂部", city: "高雄市" }
 ];
 
-async function getWeather(course) {
+async function getWeather(city) {
 
     const url =
-    `https://api.openweathermap.org/data/2.5/onecall?lat=${course.lat}&lon=${course.lon}&exclude=minutely,daily,alerts&units=metric&appid=${API_KEY}`;
+    `https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization=${CWA-60E4630E-A677-453A-BD76-C74F148C86ED}&locationName=${city}`;
 
     const res = await fetch(url);
     const data = await res.json();
 
-    const temp = data.current.temp;
-    const wind = (data.current.wind_speed * 3.6).toFixed(1);
-    const rainChance = Math.round(data.hourly[0].pop * 100);
+    const location = data.records.location[0];
 
-    return `
-        <div class="card">
-            <div class="title">${course.name}</div>
-            🌡 溫度：${temp}°C<br>
-            🌬 風速：${wind} km/h<br>
-            🌧 降雨機率：${rainChance}%
-        </div>
-    `;
+    const weather = location.weatherElement[0].time[0].parameter.parameterName;
+    const pop = location.weatherElement[1].time[0].parameter.parameterName;
+    const temp = location.weatherElement[2].time[0].parameter.parameterName;
+
+    return { weather, pop, temp };
 }
 
 async function loadCourses() {
+
     let html = "";
+
     for (const course of courses) {
-        html += await getWeather(course);
+
+        const w = await getWeather(course.city);
+
+        html += `
+            <div class="card">
+                <div class="title">${course.name}</div>
+                🌡 溫度：${w.temp}°C<br>
+                🌧 降雨機率：${w.pop}%<br>
+                ☁ 天氣：${w.weather}
+            </div>
+        `;
     }
+
     document.getElementById("courses").innerHTML = html;
 }
 
 loadCourses();
 
 </script>
+
 </body>
 </html>
