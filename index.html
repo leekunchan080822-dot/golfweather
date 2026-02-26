@@ -108,6 +108,11 @@ document.getElementById("dateInfo").innerText =
 /* ===== API KEY ===== */
 const API_KEY = "CWA-60E4630E-A677-453A-BD76-C74F148C86ED";
 
+/* ===== 台轉臺 ===== */
+function normalizeCity(city){
+    return city.replace("台","臺");
+}
+
 /* ===== 星期轉換 ===== */
 function getWeekday(dateStr){
     const d = new Date(dateStr);
@@ -115,7 +120,7 @@ function getWeekday(dateStr){
     return arr[d.getDay()];
 }
 
-/* ===== 球場清單（完整） ===== */
+/* ===== 球場清單 ===== */
 const courses = [
 { region:"台北市 / 新北市", name:"翡翠高爾夫球場", city:"新北市" },
 { region:"台北市 / 新北市", name:"黃金海岸（北海）高爾夫球場", city:"新北市" },
@@ -174,43 +179,48 @@ const courses = [
 /* ===== 取得一週預報 ===== */
 async function getWeeklyWeather(city) {
 
+    city = normalizeCity(city);
+
     const url =
-    `https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-005?Authorization=${API_KEY}&locationName=${city}`;
+    `https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-D0047-091?Authorization=${API_KEY}&LocationName=${city}`;
 
     try {
         const res = await fetch(url);
         const data = await res.json();
 
-        if (!data.records?.location?.length) return { error:true };
+        if (data.success === "false") return { error:true };
+        if (!data.records?.locations?.[0]?.location?.length)
+            return { error:true };
 
-        const location = data.records.location[0];
+        const location = data.records.locations[0].location[0];
         const elements = location.weatherElement;
 
         const wx = elements.find(e=>e.elementName==="Wx").time;
-        const pop = elements.find(e=>e.elementName==="PoP").time;
+        const pop = elements.find(e=>e.elementName==="PoP12h").time;
         const minT = elements.find(e=>e.elementName==="MinT").time;
         const maxT = elements.find(e=>e.elementName==="MaxT").time;
 
         let forecasts = [];
 
-        for (let i=0; i<wx.length; i++) {
+        for (let i=0; i<7; i++) {
 
             const date = wx[i].startTime.substring(0,10);
-            const rainValue = parseInt(pop[i].parameter.parameterName);
+            const rainValue = parseInt(pop[i].elementValue[0].value);
 
             forecasts.push({
                 date,
                 weekday: getWeekday(date),
-                weather: wx[i].parameter.parameterName,
+                weather: wx[i].elementValue[0].value,
                 pop: rainValue,
-                minT: minT[i].parameter.parameterName,
-                maxT: maxT[i].parameter.parameterName
+                minT: minT[i].elementValue[0].value,
+                maxT: maxT[i].elementValue[0].value
             });
         }
 
         return { forecasts };
 
-    } catch {
+    } catch(e) {
+        console.log(e);
         return { error:true };
     }
 }
