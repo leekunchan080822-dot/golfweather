@@ -3,42 +3,49 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>台灣高爾夫天氣</title>
+<title>711專用-高爾夫球場天氣</title>
 
 <style>
 body {
     font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-    background: #eef2f7;
+    background: #f5f7fa;
     margin: 0;
     padding: 15px;
 }
 
+.header-info {
+    text-align: center;
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 5px;
+}
+
 h2 {
     text-align: center;
+    margin-top: 0;
 }
 
 .region-title {
-    font-size: 20px;
+    font-size: 18px;
     font-weight: bold;
-    margin: 30px 0 10px;
+    margin: 25px 0 10px;
 }
 
 .card {
     background: white;
-    border-radius: 15px;
-    padding: 15px;
-    margin-bottom: 12px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 10px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.08);
 }
 
 .card.rain {
-    background: #e6f2ff;
+    background: #eef6ff;
 }
 
 .title {
-    font-size: 16px;
     font-weight: bold;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
 }
 
 .error {
@@ -49,58 +56,94 @@ h2 {
 
 <body>
 
-<h2>🏌️ 台灣高爾夫球場天氣</h2>
+<div class="header-info" id="dateInfo"></div>
+<div class="header-info">資料來源：中央氣象局（CWA）</div>
+
+<h2>台灣高爾夫球場天氣</h2>
+
 <div id="courses">載入中...</div>
 
 <script>
 
+/* ===== 日期 ===== */
+const today = new Date();
+const dateStr =
+    today.getFullYear() + "/" +
+    (today.getMonth() + 1).toString().padStart(2, "0") + "/" +
+    today.getDate().toString().padStart(2, "0");
+
+document.getElementById("dateInfo").innerText =
+    "更新日期：" + dateStr;
+
+/* ===== API KEY ===== */
 const API_KEY = "CWA-60E4630E-A677-453A-BD76-C74F148C86ED";
 
-/* ================= 球場清單 ================= */
+/* ===== 悅來分類球場清單 ===== */
 
 const courses = [
-{ region: "北部", name: "基隆高爾夫球場", city: "基隆市" },
-{ region: "北部", name: "大屯高爾夫球場", city: "新北市" },
-{ region: "北部", name: "林口高爾夫球場", city: "新北市" },
-{ region: "北部", name: "淡水高爾夫球場", city: "新北市" },
-{ region: "北部", name: "台北高爾夫俱樂部", city: "桃園市" },
-{ region: "北部", name: "桃園高爾夫俱樂部", city: "桃園市" },
-{ region: "北部", name: "東華高爾夫俱樂部", city: "桃園市" },
-{ region: "北部", name: "揚昇高爾夫球場", city: "桃園市" },
-{ region: "北部", name: "長庚高爾夫球場", city: "桃園市" },
-{ region: "北部", name: "再興高爾夫球場", city: "桃園市" },
-{ region: "北部", name: "新竹高爾夫俱樂部", city: "新竹縣" },
-{ region: "北部", name: "寶山高爾夫球場", city: "新竹縣" },
 
-{ region: "中部", name: "苗栗高爾夫球場", city: "苗栗縣" },
-{ region: "中部", name: "全國花園鄉村俱樂部", city: "苗栗縣" },
-{ region: "中部", name: "台中國際高爾夫俱樂部", city: "臺中市" },
-{ region: "中部", name: "霧峰高爾夫球場", city: "臺中市" },
-{ region: "中部", name: "清泉崗高爾夫球場", city: "臺中市" },
-{ region: "中部", name: "彰化高爾夫球場", city: "彰化縣" },
-{ region: "中部", name: "南投高爾夫俱樂部", city: "南投縣" },
+/* 台北市 / 新北市 */
+{ region: "台北市 / 新北市", name: "翡翠高爾夫球場", city: "新北市" },
+{ region: "台北市 / 新北市", name: "黃金海岸（北海）高爾夫球場", city: "新北市" },
+{ region: "台北市 / 新北市", name: "濱海高爾夫俱樂部", city: "新北市" },
+{ region: "台北市 / 新北市", name: "台灣（老淡水）高爾夫球場", city: "新北市" },
+{ region: "台北市 / 新北市", name: "大屯高爾夫球場", city: "新北市" },
+{ region: "台北市 / 新北市", name: "揮皇（新淡水）高爾夫球場", city: "新北市" },
+{ region: "台北市 / 新北市", name: "林口高爾夫球場", city: "新北市" },
+{ region: "台北市 / 新北市", name: "八里國際高爾夫球場", city: "新北市" },
+{ region: "台北市 / 新北市", name: "美麗華高爾夫球場", city: "新北市" },
+{ region: "台北市 / 新北市", name: "幸福高爾夫球場", city: "新北市" },
+{ region: "台北市 / 新北市", name: "東華高爾夫球場", city: "新北市" },
 
-{ region: "南部", name: "嘉義高爾夫球場", city: "嘉義市" },
-{ region: "南部", name: "棕梠湖高爾夫球場", city: "嘉義縣" },
-{ region: "南部", name: "台南高爾夫俱樂部", city: "臺南市" },
-{ region: "南部", name: "南一高爾夫球場", city: "臺南市" },
-{ region: "南部", name: "南寶高爾夫球場", city: "臺南市" },
-{ region: "南部", name: "斑芝花高爾夫球場", city: "臺南市" },
-{ region: "南部", name: "高雄高爾夫俱樂部", city: "高雄市" },
-{ region: "南部", name: "信誼高爾夫球場", city: "高雄市" },
-{ region: "南部", name: "觀音山高爾夫球場", city: "高雄市" },
-{ region: "南部", name: "大崗山高爾夫球場", city: "高雄市" },
-{ region: "南部", name: "屏東高爾夫球場", city: "屏東縣" },
+/* 桃園 */
+{ region: "桃園", name: "台北高爾夫球場", city: "桃園市" },
+{ region: "桃園", name: "統帥高爾夫球場", city: "桃園市" },
+{ region: "桃園", name: "長庚高爾夫球場", city: "桃園市" },
+{ region: "桃園", name: "東方高爾夫球場", city: "桃園市" },
+{ region: "桃園", name: "第一高爾夫球場", city: "桃園市" },
+{ region: "桃園", name: "永漢高爾夫球場", city: "桃園市" },
+{ region: "桃園", name: "桃園高爾夫球場", city: "桃園市" },
+{ region: "桃園", name: "大溪高爾夫球場", city: "桃園市" },
+{ region: "桃園", name: "龍潭高爾夫球場", city: "桃園市" },
+{ region: "桃園", name: "揚昇高爾夫鄉村俱樂部", city: "桃園市" },
 
-{ region: "東部", name: "花蓮高爾夫球場", city: "花蓮縣" },
-{ region: "東部", name: "台東高爾夫球場", city: "臺東縣" },
+/* 花東 */
+{ region: "花東", name: "礁溪高爾夫球場", city: "宜蘭縣" },
+{ region: "花東", name: "花蓮高爾夫球場", city: "花蓮縣" },
 
-{ region: "離島", name: "澎湖高爾夫球場", city: "澎湖縣" },
-{ region: "離島", name: "金門高爾夫球場", city: "金門縣" }
+/* 新竹 / 苗栗 */
+{ region: "新竹 / 苗栗", name: "再興高爾夫球場", city: "新竹縣" },
+{ region: "新竹 / 苗栗", name: "新竹（新豐）高爾夫球場", city: "新竹縣" },
+{ region: "新竹 / 苗栗", name: "東方之星高爾夫球場", city: "苗栗縣" },
+{ region: "新竹 / 苗栗", name: "立益高爾夫球場", city: "苗栗縣" },
+{ region: "新竹 / 苗栗", name: "旭陽高爾夫球場", city: "苗栗縣" },
+{ region: "新竹 / 苗栗", name: "老爺關西高爾夫球場", city: "新竹縣" },
+{ region: "新竹 / 苗栗", name: "山溪地高爾夫球場", city: "苗栗縣" },
+{ region: "新竹 / 苗栗", name: "寶山高爾夫球場", city: "新竹縣" },
+{ region: "新竹 / 苗栗", name: "皇家高爾夫球場", city: "苗栗縣" },
+{ region: "新竹 / 苗栗", name: "全國高爾夫球場", city: "苗栗縣" },
+
+/* 台中 / 彰化 / 南投 */
+{ region: "台中 / 彰化 / 南投", name: "清泉崗高爾夫球場", city: "臺中市" },
+{ region: "台中 / 彰化 / 南投", name: "豐原高爾夫球場", city: "臺中市" },
+{ region: "台中 / 彰化 / 南投", name: "台中國際高爾夫球場", city: "臺中市" },
+{ region: "台中 / 彰化 / 南投", name: "霧峰高爾夫球場", city: "臺中市" },
+
+/* 嘉義 / 台南 / 高雄 / 屏東 */
+{ region: "嘉義 / 台南 / 高雄 / 屏東", name: "棕梠湖（東洋）高爾夫球場", city: "嘉義縣" },
+{ region: "嘉義 / 台南 / 高雄 / 屏東", name: "斑芝花高爾夫俱樂部", city: "臺南市" },
+{ region: "嘉義 / 台南 / 高雄 / 屏東", name: "嘉光高爾夫球場", city: "嘉義市" },
+{ region: "嘉義 / 台南 / 高雄 / 屏東", name: "台南高爾夫球場（新化）", city: "臺南市" },
+{ region: "嘉義 / 台南 / 高雄 / 屏東", name: "南一高爾夫球場", city: "臺南市" },
+{ region: "嘉義 / 台南 / 高雄 / 屏東", name: "南寶高爾夫球場", city: "臺南市" },
+{ region: "嘉義 / 台南 / 高雄 / 屏東", name: "大崗山高爾夫球場", city: "高雄市" },
+{ region: "嘉義 / 台南 / 高雄 / 屏東", name: "信誼高爾夫球場", city: "高雄市" },
+{ region: "嘉義 / 台南 / 高雄 / 屏東", name: "觀音山高爾夫球場", city: "高雄市" },
+{ region: "嘉義 / 台南 / 高雄 / 屏東", name: "屏東高爾夫球場", city: "屏東縣" }
+
 ];
 
-
-/* ================= 取得天氣 ================= */
+/* ===== 取得天氣 ===== */
 
 async function getWeather(city) {
 
@@ -108,7 +151,6 @@ async function getWeather(city) {
     `https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization=${API_KEY}&locationName=${city}`;
 
     try {
-
         const res = await fetch(url);
         const data = await res.json();
 
@@ -133,13 +175,11 @@ async function getWeather(city) {
     }
 }
 
-
-/* ================= 主程式 ================= */
+/* ===== 主程式 ===== */
 
 async function loadCourses() {
 
     const cities = [...new Set(courses.map(c => c.city))];
-
     const weatherData = {};
 
     await Promise.all(
@@ -154,15 +194,11 @@ async function loadCourses() {
         return acc;
     }, {});
 
-    const regionOrder = ["北部", "中部", "南部", "東部", "離島"];
-
     let html = "";
 
-    for (const region of regionOrder) {
+    for (const region in grouped) {
 
-        if (!grouped[region]) continue;
-
-        html += `<div class="region-title">📍 ${region}</div>`;
+        html += `<div class="region-title">${region}</div>`;
 
         for (const course of grouped[region]) {
 
@@ -184,9 +220,9 @@ async function loadCourses() {
                 html += `
                     <div class="card ${rainClass}">
                         <div class="title">${course.name}</div>
-                        🌡 溫度：${w.minT}°C - ${w.maxT}°C<br>
-                        🌧 降雨機率：${w.pop}%<br>
-                        ☁ 天氣：${w.weather}
+                        溫度：${w.minT}°C - ${w.maxT}°C<br>
+                        降雨機率：${w.pop}%<br>
+                        天氣：${w.weather}
                     </div>
                 `;
             }
