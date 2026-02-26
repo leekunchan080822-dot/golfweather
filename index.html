@@ -52,7 +52,7 @@ function getWeekday(dateStr){
     return arr[d.getDay()];
 }
 
-/* 球場清單（示範，可自行擴充） */
+/* 球場清單（可自行完整擴充） */
 const courses = [
 { region:"台北市 / 新北市", name:"翡翠高爾夫球場", city:"新北市" },
 { region:"台北市 / 新北市", name:"黃金海岸（北海）高爾夫球場", city:"新北市" },
@@ -108,7 +108,7 @@ const courses = [
 { region:"嘉義 / 台南 / 高雄 / 屏東", name:"屏東高爾夫球場", city:"屏東縣" }
 ];
 
-/* ===== 天氣 API 解析 ===== */
+/* ===== 天氣 API 解析（08–12 / 12–18 分開） ===== */
 async function getWeeklyWeather(city){
 
     city = normalizeCity(city);
@@ -125,40 +125,58 @@ async function getWeeklyWeather(city){
         const location = data.records.Locations[0].Location[0];
         const elements = location.WeatherElement;
 
-        const weather = elements.find(e=>e.ElementName==="天氣現象").Time;
-        const pop = elements.find(e=>e.ElementName==="12小時降雨機率").Time;
-        const maxT = elements.find(e=>e.ElementName==="最高溫度").Time;
-        const minT = elements.find(e=>e.ElementName==="最低溫度").Time;
+        const weatherTimes = elements.find(e=>e.ElementName==="天氣現象").Time;
+        const popTimes     = elements.find(e=>e.ElementName==="12小時降雨機率").Time;
+        const maxT         = elements.find(e=>e.ElementName==="最高溫度").Time;
+        const minT         = elements.find(e=>e.ElementName==="最低溫度").Time;
 
         let daily = {};
 
-        weather.forEach((w,i)=>{
-            const date = w.StartTime.substring(0,10);
+        weatherTimes.forEach((w,i)=>{
+
+            const start = w.StartTime;
+            const end   = w.EndTime;
+            const date  = start.substring(0,10);
 
             if(!daily[date]){
-                daily[date]={
-                    weather:w.ElementValue[0].Weather,
-                    pop:0,
-                    maxT:0,
-                    minT:100
+                daily[date] = {
+                    weather: w.ElementValue[0].Weather,
+                    popMorning: 0,
+                    popAfternoon: 0,
+                    maxT: 0,
+                    minT: 100
                 };
             }
 
-            const rainRaw = pop[i]?.ElementValue[0]?.ProbabilityOfPrecipitation;
-            const rain = isNaN(parseInt(rainRaw)) ? 0 : parseInt(rainRaw);
+            const rainRaw = popTimes[i]?.ElementValue[0]?.ProbabilityOfPrecipitation;
+            const rainVal = isNaN(parseInt(rainRaw)) ? 0 : parseInt(rainRaw);
 
-            daily[date].pop = Math.max(daily[date].pop, rain);
+            const startHour = parseInt(start.substring(11,13));
+            const endHour   = parseInt(end.substring(11,13));
+
+            // 00–12 對應 08–12
+            if(startHour === 0 && endHour === 12){
+                daily[date].popMorning = rainVal;
+            }
+
+            // 12–24 對應 12–18
+            if(startHour === 12){
+                daily[date].popAfternoon = rainVal;
+            }
+
             daily[date].maxT = Math.max(daily[date].maxT, parseInt(maxT[i].ElementValue[0].MaxTemperature));
             daily[date].minT = Math.min(daily[date].minT, parseInt(minT[i].ElementValue[0].MinTemperature));
+
         });
 
         const forecasts = Object.keys(daily).slice(0,7).map(date=>({
             date,
             weekday:getWeekday(date),
-            weather:daily[date].weather,
-            pop:daily[date].pop,
-            maxT:daily[date].maxT,
-            minT:daily[date].minT
+            weather: daily[date].weather,
+            popMorning: daily[date].popMorning,
+            popAfternoon: daily[date].popAfternoon,
+            maxT: daily[date].maxT,
+            minT: daily[date].minT
         }));
 
         return {forecasts};
@@ -170,7 +188,6 @@ async function getWeeklyWeather(city){
 
 /* ===== 區域按鈕 ===== */
 function createRegionButtons(){
-
     const regions = ["全部", ...new Set(courses.map(c=>c.region))];
     const container = document.getElementById("regionButtons");
     container.innerHTML = "";
@@ -186,7 +203,6 @@ function createRegionButtons(){
 }
 
 function filterRegion(selected){
-
     const buttons = document.querySelectorAll(".region-buttons button");
     buttons.forEach(btn=>{
         btn.classList.remove("active");
@@ -194,7 +210,6 @@ function filterRegion(selected){
             btn.classList.add("active");
         }
     });
-
     renderCourses(selected);
 }
 
@@ -246,15 +261,17 @@ function renderCourses(filter="全部"){
 
                 w.forecasts.forEach((f,i)=>{
 
-                    const rainClass = f.pop>60?"rain-high":"";
+                    const rainClassMorning = f.popMorning>60?"rain-high":"";
+                    const rainClassAfternoon = f.popAfternoon>60?"rain-high":"";
                     const hiddenStyle = i>=2 ? "display:none;" : "";
 
                     forecastHTML+=`
-                    <div class="day-block ${rainClass} extra-day" style="${hiddenStyle}">
+                    <div class="day-block extra-day" style="${hiddenStyle}">
                     ${f.date}（${f.weekday}）｜
                     ${f.weather}｜
                     ${f.minT}°C-${f.maxT}°C｜
-                    降雨 ${f.pop}%
+                    <span class="${rainClassMorning}">08–12 ${f.popMorning}%</span>｜
+                    <span class="${rainClassAfternoon}">12–18 ${f.popAfternoon}%</span>
                     </div>`;
                 });
 
