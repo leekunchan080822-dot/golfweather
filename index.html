@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>全台灣高爾夫球場天氣 V8.5｜GCI 區域決策中心</title>
+<title>全台灣高爾夫球場天氣 V8.6｜GCI 區域決策中心</title>
 
 <style>
 body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f5f7fa;margin:0;padding:15px;}
@@ -190,16 +190,36 @@ h2{text-align:center;margin:10px 0 8px;}
     GCI 真實高爾夫舒適指數模型
   </div>
 
-  <div style="margin-top:6px;font-size:13px;line-height:1.6;color:#444;">
-    本指數（Golf Comfort Index, GCI）採用多因子非線性加權模型，
-    以降雨量、降雨機率與體感溫度為核心變數，
-    透過階梯式扣分機制模擬實際打球體驗影響程度，
-    並依「雨量 > 機率 > 溫度」之優先順序計算綜合舒適分數（0–100）。
-    <br><br>
-    天氣資料來源為 Open-Meteo ECMWF 數值預報模型，
-    使用逐小時預測資料，區分早球（08:00–12:00）與午球（12:01–18:00）時段，
-    取區間平均後計算指數，以提高實際決策準確度。
-  </div>
+  <div style="margin-top:6px;font-size:13px;line-height:1.6;">
+
+  <b>非線性扣分：</b> 雨量 > 機率 > 溫度<br>
+
+  <b>擊球時段：</b>
+  早球（08:00–12:00）｜
+  午球（12:01–18:00）
+
+</div>
+
+<div style="margin-top:12px;">
+  <span style="font-size:12px;color:#2563eb;cursor:pointer;"
+        onclick="toggleModelDetail(this)">
+    查看專業模型說明 ▼
+  </span>
+</div>
+
+<div style="display:none;margin-top:8px;font-size:13px;line-height:1.6;color:#444;">
+  本指數（Golf Comfort Index, GCI）採用多因子非線性加權模型，
+  以降雨量、降雨機率與體感溫度為核心變數，
+  透過階梯式扣分機制模擬實際打球體驗影響程度，
+  並計算 0–100 綜合舒適分數。
+
+  <br><br>
+
+  天氣資料來源為 Open-Meteo ECMWF 數值預報模型，
+  使用逐小時預測資料，
+  並取各時段區間平均後計算指數，
+  以提高實際決策準確度。
+</div>
 
   <div style="margin-top:12px;font-size:13px;">
     <b>色塊說明：</b><br>
@@ -1043,6 +1063,18 @@ function toggleWeekTrend(el){
   }else{
     content.style.display = "block";
     arrow.innerText = "▲";
+  }
+}
+
+function toggleModelDetail(el){
+  const detail = el.parentElement.nextElementSibling;
+
+  if(detail.style.display === "block"){
+    detail.style.display = "none";
+    el.innerText = "查看專業模型說明 ▼";
+  }else{
+    detail.style.display = "block";
+    el.innerText = "收合專業模型說明 ▲";
   }
 }
 
