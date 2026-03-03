@@ -185,22 +185,41 @@ h2{text-align:center;margin:10px 0 8px;}
 <h2>全台灣高爾夫球場天氣</h2>
 
 <div class="rule-box">
-  <div class="rule-title">GCI 真實高爾夫舒適指數模型</div>
 
-  非線性扣分：雨量 > 機率 > 溫度 > 風<br>
-  早球：08:00-12:00｜午球：12:01-18:00
+  <div class="rule-title">
+    GCI 真實高爾夫舒適指數模型
+  </div>
 
-  <div style="margin-top:10px;font-size:13px;">
+  <div style="margin-top:6px;font-size:13px;line-height:1.6;color:#444;">
+    本指數（Golf Comfort Index, GCI）採用多因子非線性加權模型，
+    以降雨量、降雨機率與體感溫度為核心變數，
+    透過階梯式扣分機制模擬實際打球體驗影響程度，
+    並依「雨量 > 機率 > 溫度」之優先順序計算綜合舒適分數（0–100）。
+    <br><br>
+    天氣資料來源為 Open-Meteo ECMWF 數值預報模型，
+    使用逐小時預測資料，區分早球（08:00–12:00）與午球（12:01–18:00）時段，
+    取區間平均後計算指數，以提高實際決策準確度。
+  </div>
+
+  <div style="margin-top:12px;font-size:13px;">
     <b>色塊說明：</b><br>
-    <span style="background:#dcfce7;padding:4px 8px;border-radius:8px;">🟢 綠色 75–100</span>
+
+    <span style="background:#dcfce7;padding:4px 8px;border-radius:8px;">
+      🟢 綠色 75–100
+    </span>
     適合打球｜降雨影響低<br>
 
-    <span style="background:#fef3c7;padding:4px 8px;border-radius:8px;">🟡 黃色 50–74</span>
+    <span style="background:#fef3c7;padding:4px 8px;border-radius:8px;">
+      🟡 黃色 50–74
+    </span>
     可評估｜可能有小雨或偏涼<br>
 
-    <span style="background:#ffe4e6;padding:4px 8px;border-radius:8px;">🔴 紅色 0–49</span>
+    <span style="background:#ffe4e6;padding:4px 8px;border-radius:8px;">
+      🔴 紅色 0–49
+    </span>
     不建議｜雨量或降雨機率偏高
   </div>
+
 </div>
 
 <div class="region-buttons" id="regionButtons"></div>
