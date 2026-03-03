@@ -3,278 +3,511 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>711 專業氣象系統 V4｜決策模式</title>
+<title>711 專業版 V4｜全台高爾夫球場決策儀表板（ECMWF）</title>
 
 <style>
-body{
-  font-family:-apple-system,BlinkMacSystemFont,sans-serif;
-  background:#f5f7fa;
-  margin:0;
-  padding:15px;
-}
+  body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f5f7fa;margin:0;padding:15px;}
+  .header-info{text-align:center;font-size:13px;color:#666;line-height:1.4;}
+  h2{text-align:center;margin:10px 0 8px;}
+  .region-buttons{text-align:center;margin:12px 0 10px;}
+  .region-buttons button{
+    margin:4px;padding:7px 12px;border-radius:999px;border:1px solid #ccc;
+    background:#fff;cursor:pointer;font-size:13px;
+  }
+  .region-buttons button.active{background:#111;color:#fff;border-color:#111;}
 
-h2{
-  text-align:center;
-  margin-bottom:5px;
-}
+  .region-title{font-size:18px;font-weight:800;margin:18px 0 10px;}
 
-.sub{
-  text-align:center;
-  font-size:13px;
-  color:#666;
-  margin-bottom:15px;
-}
+  .card{
+    background:#fff;border-radius:14px;padding:12px;margin-bottom:12px;
+    box-shadow:0 3px 10px rgba(0,0,0,0.08);
+  }
 
-/* ===== 週決策條 ===== */
-.week-bar{
-  display:flex;
-  justify-content:center;
-  gap:6px;
-  margin-bottom:15px;
-}
+  .card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+  .course-name{font-size:18px;font-weight:800;line-height:1.2;}
+  .addr{font-size:12px;color:#666;margin-top:4px;line-height:1.35;}
+  .addr.loading{color:#999;}
+  .addr.bad{color:#b91c1c;font-weight:700;}
 
-.week-dot{
-  font-size:20px;
-  cursor:pointer;
-}
+  .weekbar{
+    margin-top:8px;
+    display:flex;
+    gap:6px;
+    flex-wrap:wrap;
+  }
+  .daypill{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:6px 10px;
+    border-radius:999px;
+    border:1px solid #e5e7eb;
+    background:#fafafa;
+    font-size:12px;
+    cursor:pointer;
+    user-select:none;
+  }
+  .dot{font-size:14px;line-height:1;}
+  .why{font-size:11px;color:#555;}
+  .why b{color:#111;}
 
-/* ===== 最佳日 ===== */
-.best-day{
-  background:#111;
-  color:#fff;
-  padding:10px;
-  border-radius:10px;
-  text-align:center;
-  margin-bottom:15px;
-  font-size:14px;
-}
+  .days{margin-top:10px;}
+  .day-block{
+    font-size:13px;margin-top:8px;padding-top:8px;border-top:1px solid #eee;
+    line-height:1.55;
+  }
+  .day-title{font-weight:800;font-size:14px;margin-bottom:2px;}
 
-/* ===== 卡片 ===== */
-.card{
-  background:#fff;
-  padding:12px;
-  border-radius:12px;
-  margin-bottom:12px;
-  box-shadow:0 3px 10px rgba(0,0,0,0.08);
-}
+  .rain-high{color:#e11d48;font-weight:800;}
+  .wind-high{color:#d97706;font-weight:800;}
+  .gust-high{color:#b91c1c;font-weight:900;}
 
-.card.best{
-  border:2px solid gold;
-}
+  .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+  .row span{white-space:nowrap;}
 
-.date{
-  font-weight:bold;
-  margin-bottom:6px;
-}
+  .toggle-row{display:flex;justify-content:flex-end;margin-top:8px;}
+  .toggle-btn{
+    font-size:12px;padding:6px 10px;border-radius:10px;border:1px solid #ccc;
+    background:#f8f8f8;cursor:pointer;
+  }
 
-.status{
-  font-size:15px;
-  font-weight:bold;
-  margin-bottom:6px;
-}
+  .error{color:#b91c1c;font-weight:800;font-size:13px;margin-top:6px;}
 
-.red{color:#e11d48;}
-.yellow{color:#d97706;}
-.green{color:#16a34a;}
-
-.summary{
-  font-size:14px;
-  margin-bottom:6px;
-}
-
-.detail{
-  font-size:13px;
-  display:none;
-  margin-top:6px;
-  border-top:1px solid #eee;
-  padding-top:6px;
-}
-
-button{
-  font-size:12px;
-  padding:4px 8px;
-  border-radius:6px;
-  border:1px solid #ccc;
-  background:#f8f8f8;
-  cursor:pointer;
-}
+  /* 手機更緊湊 */
+  @media (max-width:420px){
+    body{padding:12px;}
+    .course-name{font-size:17px;}
+    .daypill{padding:6px 9px;}
+  }
 </style>
 </head>
 
 <body>
 
-<h2>711 專業氣象系統 V4</h2>
-<div class="sub">決策優先模式｜ECMWF 逐小時資料</div>
+<div class="header-info" id="dateInfo"></div>
+<div class="header-info">資料來源：Open-Meteo ECMWF 模型｜逐小時格點預報（08–12 / 12–18）</div>
+<h2>711 專業版 V4｜全台高爾夫球場「決策優先」儀表板</h2>
 
-<div id="weekBar" class="week-bar"></div>
-<div id="bestDay" class="best-day">計算最佳日中...</div>
-<div id="cards"></div>
+<div class="region-buttons" id="regionButtons"></div>
+<div id="courses">載入中...</div>
 
 <script>
-
-/* ===== 決策門檻 ===== */
-const RULE={
-  rainRed:60,
-  gustRed:40,
-  rainYellow:30,
-  gustYellow:30
+/* =========================
+   0) 版本設定（可調）
+========================= */
+const DECISION = {
+  red_pop: 60,     // 🔴 降雨機率 > 60%
+  red_gust: 40,    // 🔴 陣風 > 40 km/h
+  yellow_pop: 30,  // 🟡 降雨 30–60%
+  yellow_gust: 30, // 🟡 陣風 30–40 km/h
+  default_show_days: 2, // 預設顯示前2天
+  max_concurrent_fetch: 8, // 併發抓天氣避免手機爆掉
 };
 
-/* ===== 示範球場 ===== */
-const course={
-  name:"台北高爾夫球場",
-  lat:25.0124,
-  lon:121.3005
-};
+/* =========================
+   1) 基本資訊
+========================= */
+const today = new Date();
+document.getElementById("dateInfo").innerText = "資料更新時間：" + today.toLocaleString();
 
 function getWeekday(dateStr){
   const d=new Date(dateStr);
   return ["週日","週一","週二","週三","週四","週五","週六"][d.getDay()];
 }
 
-/* ===== 決策判定 ===== */
-function evaluate(f){
-  const maxPop=Math.max(f.popMorning,f.popAfternoon);
-  const maxGust=Math.max(f.gustMorning,f.gustAfternoon);
+/* =========================
+   2) 全台球場清單（沿用你的V2清單，不亂刪）
+========================= */
+const courses = [
+  /* 台北 / 新北 */
+  { region:"台北市 / 新北市", name:"翡翠高爾夫球場", lat:25.0679, lon:121.4543 },
+  { region:"台北市 / 新北市", name:"黃金海岸（北海）高爾夫球場", lat:25.2901, lon:121.5378 },
+  { region:"台北市 / 新北市", name:"濱海高爾夫俱樂部", lat:25.2517, lon:121.5195 },
+  { region:"台北市 / 新北市", name:"台灣（老淡水）高爾夫球場", lat:25.1964, lon:121.4415 },
+  { region:"台北市 / 新北市", name:"大屯高爾夫球場", lat:25.2023, lon:121.5298 },
+  { region:"台北市 / 新北市", name:"揮皇（新淡水）高爾夫球場", lat:25.2191, lon:121.4472 },
+  { region:"台北市 / 新北市", name:"林口高爾夫球場", lat:25.0863, lon:121.3657 },
+  { region:"台北市 / 新北市", name:"八里國際高爾夫球場", lat:25.1427, lon:121.3998 },
+  { region:"台北市 / 新北市", name:"美麗華高爾夫球場", lat:25.1085, lon:121.5332 },
+  { region:"台北市 / 新北市", name:"幸福高爾夫球場", lat:25.1815, lon:121.4376 },
+  { region:"台北市 / 新北市", name:"東華高爾夫球場", lat:25.0962, lon:121.6033 },
 
-  let reason=[];
-  if(maxPop>RULE.rainRed) reason.push("雨");
-  if(maxGust>RULE.gustRed) reason.push("風");
+  /* 桃園 */
+  { region:"桃園", name:"台北高爾夫球場", lat:25.0124, lon:121.3005 },
+  { region:"桃園", name:"統帥高爾夫球場", lat:24.9967, lon:121.2831 },
+  { region:"桃園", name:"長庚高爾夫球場", lat:25.0582, lon:121.3869 },
+  { region:"桃園", name:"東方高爾夫球場", lat:24.9463, lon:121.2924 },
+  { region:"桃園", name:"第一高爾夫球場", lat:24.9538, lon:121.2437 },
+  { region:"桃園", name:"永漢高爾夫球場", lat:24.8942, lon:121.2715 },
+  { region:"桃園", name:"桃園高爾夫球場", lat:25.0247, lon:121.2859 },
+  { region:"桃園", name:"大溪高爾夫球場", lat:24.8837, lon:121.2806 },
+  { region:"桃園", name:"龍潭高爾夫球場", lat:24.8634, lon:121.2187 },
+  { region:"桃園", name:"揚昇高爾夫鄉村俱樂部", lat:24.8578, lon:121.1964 },
 
-  if(reason.length){
-    return {level:"red",icon:"🔴",text:"不建議（"+reason.join("＋")+"）"};
+  /* 花東 */
+  { region:"花東", name:"礁溪高爾夫球場", lat:24.8124, lon:121.7501 },
+  { region:"花東", name:"花蓮高爾夫球場", lat:23.9917, lon:121.6018 },
+
+  /* 新竹 / 苗栗 */
+  { region:"新竹 / 苗栗", name:"再興高爾夫球場", lat:24.7893, lon:121.0234 },
+  { region:"新竹 / 苗栗", name:"新竹（新豐）高爾夫球場", lat:24.8884, lon:120.9871 },
+  { region:"新竹 / 苗栗", name:"東方之星高爾夫球場", lat:24.5418, lon:120.8724 },
+  { region:"新竹 / 苗栗", name:"立益高爾夫球場", lat:24.5207, lon:120.8822 },
+  { region:"新竹 / 苗栗", name:"旭陽高爾夫球場", lat:24.4693, lon:120.8438 },
+  { region:"新竹 / 苗栗", name:"老爺關西高爾夫球場", lat:24.7986, lon:121.1777 },
+  { region:"新竹 / 苗栗", name:"山溪地高爾夫球場", lat:24.4845, lon:120.9027 },
+  { region:"新竹 / 苗栗", name:"寶山高爾夫球場", lat:24.7422, lon:120.9853 },
+  { region:"新竹 / 苗栗", name:"皇家高爾夫球場", lat:24.6127, lon:120.8611 },
+  { region:"新竹 / 苗栗", name:"全國高爾夫球場", lat:24.5754, lon:120.8149 },
+
+  /* 台中 / 彰化 / 南投 */
+  { region:"台中 / 彰化 / 南投", name:"清泉崗高爾夫球場", lat:24.2102, lon:120.6041 },
+  { region:"台中 / 彰化 / 南投", name:"豐原高爾夫球場", lat:24.2667, lon:120.7173 },
+  { region:"台中 / 彰化 / 南投", name:"台中國際高爾夫球場", lat:24.1715, lon:120.7276 },
+  { region:"台中 / 彰化 / 南投", name:"霧峰高爾夫球場", lat:24.0641, lon:120.7009 },
+
+  /* 嘉義 / 台南 / 高雄 / 屏東 */
+  { region:"嘉義 / 台南 / 高雄 / 屏東", name:"棕梠湖（東洋）高爾夫球場", lat:23.4702, lon:120.4024 },
+  { region:"嘉義 / 台南 / 高雄 / 屏東", name:"斑芝花高爾夫俱樂部", lat:23.0168, lon:120.4057 },
+  { region:"嘉義 / 台南 / 高雄 / 屏東", name:"嘉光高爾夫球場", lat:23.4859, lon:120.4308 },
+  { region:"嘉義 / 台南 / 高雄 / 屏東", name:"台南高爾夫球場（新化）", lat:23.0384, lon:120.3205 },
+  { region:"嘉義 / 台南 / 高雄 / 屏東", name:"南一高爾夫球場", lat:23.1438, lon:120.4037 },
+  { region:"嘉義 / 台南 / 高雄 / 屏東", name:"南寶高爾夫球場", lat:23.1025, lon:120.3268 },
+  { region:"嘉義 / 台南 / 高雄 / 屏東", name:"大崗山高爾夫球場", lat:22.8533, lon:120.3542 },
+  { region:"嘉義 / 台南 / 高雄 / 屏東", name:"信誼高爾夫球場", lat:22.7245, lon:120.3894 },
+  { region:"嘉義 / 台南 / 高雄 / 屏東", name:"觀音山高爾夫球場", lat:22.7416, lon:120.3557 },
+  { region:"嘉義 / 台南 / 高雄 / 屏東", name:"屏東高爾夫球場", lat:22.6694, lon:120.4882 }
+];
+
+/* =========================
+   3) 天氣：Open-Meteo ECMWF
+========================= */
+async function getWeeklyWeather(lat, lon){
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,windspeed_10m,windgusts_10m&daily=temperature_2m_max,temperature_2m_min&forecast_days=7&timezone=Asia/Taipei`;
+
+  try{
+    const res = await fetch(url);
+    const data = await res.json();
+    if(!data || !data.hourly || !data.daily) return { error:true };
+
+    const hourly = data.hourly;
+    const daily = data.daily;
+    const results = [];
+
+    for(let d=0; d<7; d++){
+      const date = daily.time[d];
+      const morning = [];
+      const afternoon = [];
+      const day0818 = [];
+
+      hourly.time.forEach((t,i)=>{
+        if(t.startsWith(date)){
+          const h = parseInt(t.substring(11,13));
+          if(h>=8 && h<12) morning.push(i);
+          if(h>=12 && h<18) afternoon.push(i);
+          if(h>=8 && h<18) day0818.push(i);
+        }
+      });
+
+      const avg=(arr,key)=>
+        arr.length ? Math.round(arr.reduce((s,i)=>s+hourly[key][i],0)/arr.length) : 0;
+
+      results.push({
+        date,
+        weekday:getWeekday(date),
+        minT: Math.round(daily.temperature_2m_min[d]*10)/10,
+        maxT: Math.round(daily.temperature_2m_max[d]*10)/10,
+        feel0818: avg(day0818,"apparent_temperature"),
+
+        popMorning: avg(morning,"precipitation_probability"),
+        popAfternoon: avg(afternoon,"precipitation_probability"),
+
+        rainMorning: avg(morning,"precipitation"),
+        rainAfternoon: avg(afternoon,"precipitation"),
+
+        windMorning: avg(morning,"windspeed_10m"),
+        windAfternoon: avg(afternoon,"windspeed_10m"),
+
+        gustMorning: avg(morning,"windgusts_10m"),
+        gustAfternoon: avg(afternoon,"windgusts_10m")
+      });
+    }
+
+    return { forecasts: results };
+  }catch(e){
+    console.log(e);
+    return { error:true };
   }
-
-  if(maxPop>=RULE.rainYellow || maxGust>=RULE.gustYellow){
-    return {level:"yellow",icon:"🟡",text:"風大"};
-  }
-
-  return {level:"green",icon:"🟢",text:"適合"};
 }
 
-/* ===== API ===== */
-async function getWeather(){
-  const url=`https://api.open-meteo.com/v1/forecast?latitude=${course.lat}&longitude=${course.lon}&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,windspeed_10m,windgusts_10m&daily=temperature_2m_max,temperature_2m_min&forecast_days=7&timezone=Asia/Taipei`;
+/* =========================
+   4) 地址：OSM Nominatim 反查（免費/免綁卡）
+   - 做快取避免一直查
+========================= */
+const addressCache = {}; // key = "lat,lon" => address string
 
-  const res=await fetch(url);
-  const data=await res.json();
+async function reverseGeocode(lat, lon){
+  const key = `${lat},${lon}`;
+  if(addressCache[key]) return addressCache[key];
 
-  const hourly=data.hourly;
-  const daily=data.daily;
-  const results=[];
+  const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&accept-language=zh-TW`;
 
-  for(let d=0;d<7;d++){
-    const date=daily.time[d];
-    const morning=[];
-    const afternoon=[];
-    const day0818=[];
-
-    hourly.time.forEach((t,i)=>{
-      if(t.startsWith(date)){
-        const h=parseInt(t.substring(11,13));
-        if(h>=8&&h<12) morning.push(i);
-        if(h>=12&&h<18) afternoon.push(i);
-        if(h>=8&&h<18) day0818.push(i);
+  try{
+    const res = await fetch(url, {
+      headers: {
+        // Nominatim 建議帶 user-agent，但瀏覽器無法自訂 UA；這裡至少加 Referer 讓請求更「像人」
+        "Accept": "application/json"
       }
     });
+    const data = await res.json();
+    const addr = (data && (data.display_name || (data.address && Object.values(data.address).join(" ")))) ? (data.display_name || Object.values(data.address).join(" ")) : "地址取得失敗";
+    addressCache[key] = addr;
+    return addr;
+  }catch(e){
+    console.log(e);
+    addressCache[key] = "地址取得失敗";
+    return "地址取得失敗";
+  }
+}
 
-    const avg=(arr,key)=>
-      arr.length?Math.round(arr.reduce((s,i)=>s+hourly[key][i],0)/arr.length):0;
+/* =========================
+   5) 決策燈號：每日 + 原因縮寫
+========================= */
+function dayDecision(f){
+  const maxPop = Math.max(f.popMorning, f.popAfternoon);
+  const maxGust = Math.max(f.gustMorning, f.gustAfternoon);
 
-    results.push({
-      date,
-      weekday:getWeekday(date),
-      minT:daily.temperature_2m_min[d],
-      maxT:daily.temperature_2m_max[d],
-      popMorning:avg(morning,"precipitation_probability"),
-      popAfternoon:avg(afternoon,"precipitation_probability"),
-      gustMorning:avg(morning,"windgusts_10m"),
-      gustAfternoon:avg(afternoon,"windgusts_10m"),
-      rainMorning:avg(morning,"precipitation"),
-      rainAfternoon:avg(afternoon,"precipitation"),
-      windMorning:avg(morning,"windspeed_10m"),
-      windAfternoon:avg(afternoon,"windspeed_10m"),
-      feel0818:avg(day0818,"apparent_temperature")
+  const badRain = maxPop > DECISION.red_pop;
+  const badWind = maxGust > DECISION.red_gust;
+
+  if(badRain || badWind){
+    const why = badRain && badWind ? "雨風" : (badRain ? "雨" : "風");
+    return { icon:"🔴", label:"不建議", why, level:"red" };
+  }
+
+  const midRain = maxPop >= DECISION.yellow_pop && maxPop <= DECISION.red_pop;
+  const midWind = maxGust >= DECISION.yellow_gust && maxGust <= DECISION.red_gust;
+
+  if(midRain || midWind){
+    const why = midRain && midWind ? "雨風" : (midRain ? "雨" : "風");
+    return { icon:"🟡", label:"可打／風大", why, level:"yellow" };
+  }
+
+  return { icon:"🟢", label:"適合", why:"", level:"green" };
+}
+
+/* =========================
+   6) UI：區域按鈕
+========================= */
+let weatherCache = {};  // name => weather
+let addressByCourse = {}; // name => address string
+let selectedRegion = "全部";
+
+function createRegionButtons(){
+  const regions = ["全部", ...new Set(courses.map(c=>c.region))];
+  const container = document.getElementById("regionButtons");
+  container.innerHTML = "";
+
+  regions.forEach(r=>{
+    const btn = document.createElement("button");
+    btn.innerText = r;
+    btn.onclick = ()=>filterRegion(r);
+    if(r===selectedRegion) btn.classList.add("active");
+    container.appendChild(btn);
+  });
+}
+
+function filterRegion(r){
+  selectedRegion = r;
+  document.querySelectorAll(".region-buttons button").forEach(btn=>{
+    btn.classList.toggle("active", btn.innerText===r);
+  });
+  renderCourses();
+}
+
+/* =========================
+   7) 渲染：球場卡片
+========================= */
+function renderCourses(){
+  const container = document.getElementById("courses");
+  const filtered = selectedRegion==="全部" ? courses : courses.filter(c=>c.region===selectedRegion);
+
+  const grouped = filtered.reduce((acc,c)=>{
+    (acc[c.region] ||= []).push(c);
+    return acc;
+  },{});
+
+  let html = "";
+
+  for(const region in grouped){
+    html += `<div class="region-title">${region}</div>`;
+
+    grouped[region].forEach((course, idx)=>{
+      const w = weatherCache[course.name];
+
+      // 地址（可能尚未回來）
+      const addr = addressByCourse[course.name];
+      const addrClass = !addr ? "addr loading" : (addr==="地址取得失敗" ? "addr bad" : "addr");
+
+      if(!w || w.error){
+        html += `
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <div class="course-name">${course.name}</div>
+                <div class="${addrClass}">地址：${addr ? addr : "載入中..."}</div>
+              </div>
+            </div>
+            <div class="error">天氣讀取失敗</div>
+          </div>
+        `;
+        return;
+      }
+
+      // 週燈號條：每一天 + 原因
+      const pills = w.forecasts.map((f,i)=>{
+        const d = dayDecision(f);
+        const short = `${f.date.slice(5).replace("-","/")} ${f.weekday}`;
+        const why = d.why ? ` <span class="why"><b>${d.why}</b></span>` : `<span class="why">OK</span>`;
+        return `
+          <div class="daypill" onclick="scrollToDay('${course.name}', ${i})" title="${short} ${d.label}">
+            <span class="dot">${d.icon}</span>
+            <span>${short}</span>
+            ${why}
+          </div>
+        `;
+      }).join("");
+
+      // 天氣明細（預設2天，其餘隱藏）
+      let daysHTML = "";
+      w.forecasts.forEach((f,i)=>{
+        const hidden = i>=DECISION.default_show_days ? "style='display:none;'" : "";
+        const d = dayDecision(f);
+
+        const maxPop = Math.max(f.popMorning,f.popAfternoon);
+        const maxGust = Math.max(f.gustMorning,f.gustAfternoon);
+
+        const rainClass = maxPop>DECISION.red_pop ? "rain-high" : "";
+        const gustClass = maxGust>DECISION.red_gust ? "gust-high" : (maxGust>=DECISION.yellow_gust ? "wind-high" : "");
+
+        const blockId = `day_${safeId(course.name)}_${i}`;
+
+        daysHTML += `
+          <div class="day-block dayitem" id="${blockId}" ${hidden}>
+            <div class="day-title">${f.date}（${f.weekday}）</div>
+
+            <div class="row">
+              <span>${d.icon} <b>${d.label}</b>${d.why?`（${d.why}）`:""}</span>
+              <span>🌧 <span class="${rainClass}">${maxPop}%</span></span>
+              <span>💨 <span class="${gustClass}">${maxGust} km/h</span></span>
+            </div>
+
+            <div class="row">
+              <span>🌡 ${f.minT}°C - ${f.maxT}°C</span>
+              <span>體感 ${f.feel0818}°C</span>
+            </div>
+
+            <div style="margin-top:6px;">
+              08–12｜
+              ☔ ${f.rainMorning}mm (${f.popMorning}%)｜
+              🌬 ${f.windMorning}km/h｜
+              💨 陣風 ${f.gustMorning}<br>
+              12–18｜
+              ☔ ${f.rainAfternoon}mm (${f.popAfternoon}%)｜
+              🌬 ${f.windAfternoon}km/h｜
+              💨 陣風 ${f.gustAfternoon}
+            </div>
+          </div>
+        `;
+      });
+
+      const cardId = `card_${safeId(course.name)}`;
+
+      html += `
+        <div class="card" id="${cardId}">
+          <div class="card-head">
+            <div>
+              <div class="course-name">${course.name}</div>
+              <div class="${addrClass}">地址：${addr ? addr : "載入中..."}</div>
+            </div>
+          </div>
+
+          <div class="weekbar">${pills}</div>
+
+          <div class="days" data-course="${course.name}">
+            ${daysHTML}
+            <div class="toggle-row">
+              <button class="toggle-btn" onclick="toggleDays('${course.name}', this)">展開</button>
+            </div>
+          </div>
+        </div>
+      `;
     });
   }
 
-  return results;
+  container.innerHTML = html;
 }
 
-/* ===== 最佳日 ===== */
-function findBest(data){
-  return [...data].sort((a,b)=>{
-    const ap=Math.max(a.popMorning,a.popAfternoon);
-    const bp=Math.max(b.popMorning,b.popAfternoon);
-    const ag=Math.max(a.gustMorning,a.gustAfternoon);
-    const bg=Math.max(b.gustMorning,b.gustAfternoon);
-
-    const ar=(ap>RULE.rainRed||ag>RULE.gustRed);
-    const br=(bp>RULE.rainRed||bg>RULE.gustRed);
-
-    if(ar!==br) return ar?1:-1;
-    if(ap!==bp) return ap-bp;
-    return ag-bg;
-  })[0];
+function safeId(s){
+  return s.replace(/[^\w\u4e00-\u9fa5]/g,'_');
 }
 
-/* ===== 渲染 ===== */
-function render(data){
-  const best=findBest(data);
+/* 展開/收合：保留你原本「前2天」邏輯 */
+function toggleDays(courseName, btn){
+  const card = btn.closest(".card");
+  const items = card.querySelectorAll(".dayitem");
+  const isHidden = Array.from(items).slice(DECISION.default_show_days).some(el => el.style.display === "none");
 
-  const weekBar=document.getElementById("weekBar");
-  const bestDiv=document.getElementById("bestDay");
-  const cards=document.getElementById("cards");
-
-  weekBar.innerHTML="";
-  cards.innerHTML="";
-
-  data.forEach((f,i)=>{
-    const d=evaluate(f);
-
-    const dot=document.createElement("div");
-    dot.className="week-dot";
-    dot.innerText=d.icon;
-    dot.onclick=()=>document.getElementById("day"+i).scrollIntoView({behavior:"smooth"});
-    weekBar.appendChild(dot);
-
-    const card=document.createElement("div");
-    card.className="card";
-    if(f.date===best.date) card.classList.add("best");
-    card.id="day"+i;
-
-    const maxPop=Math.max(f.popMorning,f.popAfternoon);
-    const maxGust=Math.max(f.gustMorning,f.gustAfternoon);
-
-    card.innerHTML=`
-      <div class="date">${f.date}（${f.weekday}）</div>
-      <div class="status ${d.level}">${d.icon} ${d.text}</div>
-      <div class="summary">
-        🌧 ${maxPop}% ｜ 💨 ${maxGust} km/h<br>
-        🌡 ${f.minT}°C - ${f.maxT}°C
-      </div>
-      <button onclick="toggleDetail(this)">專業數據</button>
-      <div class="detail">
-        08–12 ☔ ${f.rainMorning}mm (${f.popMorning}%) ｜ 💨 ${f.gustMorning}<br>
-        12–18 ☔ ${f.rainAfternoon}mm (${f.popAfternoon}%) ｜ 💨 ${f.gustAfternoon}<br>
-        體感（08–18平均）：${f.feel0818}°C
-      </div>
-    `;
-
-    cards.appendChild(card);
+  items.forEach((el, idx)=>{
+    if(idx >= DECISION.default_show_days){
+      el.style.display = isHidden ? "block" : "none";
+    }
   });
 
-  bestDiv.innerHTML=`⭐ 本週最佳：${best.date}（${best.weekday}）`;
+  btn.innerText = isHidden ? "收合" : "展開";
 }
 
-function toggleDetail(btn){
-  const d=btn.nextElementSibling;
-  d.style.display=d.style.display==="block"?"none":"block";
+/* 點週燈號跳到那一天 */
+function scrollToDay(courseName, dayIndex){
+  const id = `day_${safeId(courseName)}_${dayIndex}`;
+  const el = document.getElementById(id);
+  if(el) el.scrollIntoView({behavior:"smooth", block:"start"});
 }
 
-/* ===== 啟動 ===== */
-getWeather().then(render);
+/* =========================
+   8) 載入：分批併發抓天氣，避免手機掛掉
+========================= */
+async function loadAll(){
+  // 先畫區域按鈕
+  createRegionButtons();
 
+  // 先顯示「地址載入中 + 天氣載入中」
+  document.getElementById("courses").innerHTML = "載入中...";
+
+  // 併發限制：分批抓天氣
+  const queue = [...courses];
+  while(queue.length){
+    const batch = queue.splice(0, DECISION.max_concurrent_fetch);
+    await Promise.all(batch.map(async c=>{
+      // 天氣
+      weatherCache[c.name] = await getWeeklyWeather(c.lat, c.lon);
+
+      // 地址（不阻塞渲染：先渲染再補地址也可以）
+      // 但這裡一起抓，避免你覺得「沒顯示地址」
+      const addr = await reverseGeocode(c.lat, c.lon);
+      addressByCourse[c.name] = addr;
+    }));
+
+    // 每批完成就渲染一次（使用者感覺比較順）
+    renderCourses();
+  }
+
+  // 最終渲染一次
+  renderCourses();
+}
+
+loadAll();
 </script>
+
 </body>
 </html>
