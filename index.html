@@ -193,11 +193,7 @@ document.getElementById("searchInput").addEventListener("keydown",function(e){
    doSearch();
  }
 });
-function clearSearch(){
- document.getElementById("searchInput").value="";
- searchKeyword="";
- renderCourses();
-}
+
 
 /* ===== GCI 真實模型 ===== */
 function calculateGCI(pop,rain,temp){
@@ -409,7 +405,7 @@ function renderDecisionCenter(){
  const container=document.getElementById("decisionCenter");
  let html="";
 
- const dates=Object.keys(rankingData);
+ const dates=Object.keys(rankingData).sort();
 
  dates.forEach((date,index)=>{
 
