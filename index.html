@@ -744,203 +744,117 @@ function renderDecisionCenter(){
   const container=document.getElementById("decisionCenter");
   let html="";
 
-  /* ===== 區域最佳日統計 ===== */
+  const dates=Object.keys(rankingData).sort();
+  if(dates.length===0){
+    container.innerHTML="<div class='card'>尚無資料</div>";
+    return;
+  }
 
-  let regionBest={};
+  /* ===== 1️⃣ 明日最佳建議 ===== */
 
-  Object.keys(rankingData).forEach(date=>{
+  const tomorrow=dates[1] || dates[0];
+  let bestRegion="";
+  let bestScore=-1;
 
-    Object.keys(rankingData[date]).forEach(region=>{
-
-      const mScore = rankingData[date][region].avgMorning;
-      const aScore = rankingData[date][region].avgAfternoon;
-
-      if(!regionBest[region]){
-        regionBest[region]={
-          morningDay:date,
-          morningScore:mScore,
-          afternoonDay:date,
-          afternoonScore:aScore
-        };
-      }else{
-
-        if(mScore > regionBest[region].morningScore){
-          regionBest[region].morningScore=mScore;
-          regionBest[region].morningDay=date;
-        }
-
-        if(aScore > regionBest[region].afternoonScore){
-          regionBest[region].afternoonScore=aScore;
-          regionBest[region].afternoonDay=date;
-        }
-
-      }
-
-    });
-
+  Object.keys(rankingData[tomorrow]).forEach(region=>{
+    const avg = Math.round(
+      (rankingData[tomorrow][region].avgMorning +
+       rankingData[tomorrow][region].avgAfternoon)/2
+    );
+    if(avg>bestScore){
+      bestScore=avg;
+      bestRegion=region;
+    }
   });
 
-  /* ===== 區域最佳日卡片 ===== */
+  html+=`
+  <div class="card" style="margin-bottom:20px;
+      background:#f0fdf4;
+      border:1px solid #bbf7d0;">
+    <div style="font-size:18px;font-weight:900;margin-bottom:10px;">
+      🎯 明日最佳打球建議
+    </div>
+    <div style="font-size:16px;">
+      📅 ${tomorrow}（${getWeekday(tomorrow)}）<br>
+      📍 建議前往：<b>${bestRegion}</b><br>
+      ⭐ 綜合評分：<b style="color:#16a34a;">${bestScore}</b>
+    </div>
+  </div>
+  `;
+
+  /* ===== 2️⃣ 本週最佳日 ===== */
+
+  let bestDay="";
+  let bestDayScore=-1;
+
+  dates.forEach(date=>{
+    let total=0;
+    let count=0;
+
+    Object.keys(rankingData[date]).forEach(region=>{
+      total += rankingData[date][region].avgMorning;
+      total += rankingData[date][region].avgAfternoon;
+      count+=2;
+    });
+
+    const avg=Math.round(total/count);
+
+    if(avg>bestDayScore){
+      bestDayScore=avg;
+      bestDay=date;
+    }
+  });
 
   html+=`
-  <div class="card" style="margin-bottom:25px;background:#f0fdf4;border:1px solid #bbf7d0;">
-    <div style="font-weight:900;font-size:18px;margin-bottom:12px;">
-      🏆 各區域本週最佳打球日
+  <div class="card" style="margin-bottom:20px;">
+    <div style="font-size:16px;font-weight:800;margin-bottom:8px;">
+      🏆 本週整體最佳日
+    </div>
+    📅 ${bestDay}（${getWeekday(bestDay)}）<br>
+    ⭐ 全台平均 GCI：<b>${bestDayScore}</b>
+  </div>
+  `;
+
+  /* ===== 3️⃣ 今日區域對比 ===== */
+
+  const today=dates[0];
+
+  html+=`
+  <div class="card">
+    <div style="font-size:16px;font-weight:800;margin-bottom:12px;">
+      📊 今日區域對比（${today}）
     </div>
   `;
 
-  Object.keys(regionBest).forEach(region=>{
+  Object.keys(rankingData[today]).forEach(region=>{
+
+    const avg=Math.round(
+      (rankingData[today][region].avgMorning +
+       rankingData[today][region].avgAfternoon)/2
+    );
+
+    const width=Math.min(avg,100);
+
     html+=`
-      <div style="margin-bottom:12px;">
-        📍 <b>${region}</b><br>
-        🌅 早球最佳：
-        <b>${regionBest[region].morningDay}</b>
-        （${regionBest[region].morningScore}分）<br>
-        🌤 午球最佳：
-        <b>${regionBest[region].afternoonDay}</b>
-        （${regionBest[region].afternoonScore}分）
+      <div style="margin-bottom:10px;">
+        <div style="font-size:14px;margin-bottom:4px;">
+          ${region}（${avg}）
+        </div>
+        <div style="background:#e5e7eb;
+                    height:8px;
+                    border-radius:6px;">
+          <div style="
+            width:${width}%;
+            height:8px;
+            background:#22c55e;
+            border-radius:6px;">
+          </div>
+        </div>
       </div>
     `;
   });
 
   html+=`</div>`;
-
-  /* ===== 以下保留原本每日排行榜 ===== */
-
-  const dates=Object.keys(rankingData).sort();
-
-  dates.forEach((date,index)=>{
-
-    const showDefault=index<2;
-
-    const regionsToday=Object.keys(rankingData[date]);
-
-    let bestMorningRegion="";
-    let bestMorningScore=-1;
-    let bestAfternoonRegion="";
-    let bestAfternoonScore=-1;
-
-    regionsToday.forEach(r=>{
-
-      if(rankingData[date][r].avgMorning > bestMorningScore){
-        bestMorningScore = rankingData[date][r].avgMorning;
-        bestMorningRegion = r;
-      }
-
-      if(rankingData[date][r].avgAfternoon > bestAfternoonScore){
-        bestAfternoonScore = rankingData[date][r].avgAfternoon;
-        bestAfternoonRegion = r;
-      }
-
-    });
-
-    html+=`
-    <div class="card" style="margin-bottom:20px;">
-
-      <div style="font-size:18px;font-weight:900;cursor:pointer;"
-           onclick="toggleRankDay(this)">
-
-        📅 ${date}（${getWeekday(date)}）
-
-        <span style="float:right;font-size:14px;">
-          ${showDefault?"▼":"▶"}
-        </span>
-
-      </div>
-
-      <div class="rank-day-content"
-           style="margin-top:15px;
-           display:${showDefault?"block":"none"};">
-
-        <div style="
-          margin-bottom:15px;
-          padding:10px;
-          border-radius:12px;
-          background:#f8fafc;
-          border:1px solid #e5e7eb;
-        ">
-          🏆 早球最佳區域：
-          <b>${bestMorningRegion}</b>
-          （${bestMorningScore}分）<br>
-
-          🏆 午球最佳區域：
-          <b>${bestAfternoonRegion}</b>
-          （${bestAfternoonScore}分）
-        </div>
-    `;
-
-    Object.keys(rankingData[date]).forEach(region=>{
-
-      const morningList=rankingData[date][region].morning;
-      const afternoonList=rankingData[date][region].afternoon;
-
-      html+=`
-      <div style="
-        margin-bottom:18px;
-        padding:14px;
-        border-radius:14px;
-        background:#fafafa;
-        border:1px solid #eee;
-      ">
-
-        <div style="
-          font-size:16px;
-          font-weight:800;
-          margin-bottom:10px;
-        ">
-          📍 ${region}
-          （早${rankingData[date][region].avgMorning}
-          / 午${rankingData[date][region].avgAfternoon}）
-        </div>
-
-        <div style="display:flex;flex-wrap:wrap;gap:15px;">
-
-          <div style="flex:1;min-width:220px;">
-            <div style="font-weight:800;margin-bottom:6px;">
-              🌅 早球排行榜
-            </div>
-            ${morningList.slice(0,5)
-              .map((c,i)=>`
-              <div style="
-                margin-bottom:4px;
-                font-weight:${i===0?'900':'500'};
-              ">
-                ${i+1}. ${c.name} –
-                <span style="color:${scoreColor(c.score)};">
-                  ${c.score}分
-                </span>
-              </div>
-            `).join("")}
-          </div>
-
-          <div style="flex:1;min-width:220px;">
-            <div style="font-weight:800;margin-bottom:6px;">
-              🌤 午球排行榜
-            </div>
-            ${afternoonList.slice(0,5)
-              .map((c,i)=>`
-              <div style="
-                margin-bottom:4px;
-                font-weight:${i===0?'900':'500'};
-              ">
-                ${i+1}. ${c.name} –
-                <span style="color:${scoreColor(c.score)};">
-                  ${c.score}分
-                </span>
-              </div>
-            `).join("")}
-          </div>
-
-        </div>
-      </div>
-      `;
-    });
-
-    html+=`
-        </div>
-      </div>
-    `;
-  });
 
   container.innerHTML=html;
 }
