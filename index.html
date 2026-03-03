@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>711 專業版 V5｜全台高爾夫球場決策儀表板（ECMWF）</title>
+<title>全台灣高爾夫球場天氣｜711｜坤戰</title>
 
 <style>
 body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f5f7fa;margin:0;padding:15px;}
@@ -23,6 +23,24 @@ h2{text-align:center;margin:10px 0 8px;}
   background:#fff;cursor:pointer;font-size:13px;
 }
 .region-buttons button.active{background:#111;color:#fff;border-color:#111;}
+
+/* ===== 新增搜尋樣式 ===== */
+.search-box{text-align:center;margin:10px 0 15px;}
+.search-input{
+  width:90%;max-width:420px;
+  padding:10px 14px;
+  border-radius:999px;border:1px solid #ccc;
+  font-size:14px;
+}
+.clear-btn{
+  margin-left:8px;
+  padding:8px 14px;
+  border-radius:999px;
+  border:1px solid #ccc;
+  background:#f2f2f2;
+  cursor:pointer;
+  font-size:13px;
+}
 
 .region-title{font-size:18px;font-weight:800;margin:18px 0 10px;}
 
@@ -70,17 +88,24 @@ h2{text-align:center;margin:10px 0 8px;}
 
 <div class="header-info" id="dateInfo"></div>
 <div class="header-info">資料來源：Open-Meteo ECMWF 模型｜逐小時格點預報（08–12 / 12–18）</div>
-<h2>711 專業版 V5｜全台高爾夫球場決策儀表板</h2>
+<h2>全台灣高爾夫球場天氣｜711｜坤戰</h2>
 
 <div class="rule-box">
   <div class="rule-title">🎯 決策燈號基準</div>
   <div>🔴 不建議：降雨機率 &gt; 60% 或 陣風 &gt; 40 km/h</div>
-  <div>🟡 可打／風大：降雨 30–60% 或 陣風 30–40 km/h</div>
+  <div>🟡 可打：降雨 30–60% 或 陣風 30–40 km/h</div>
   <div>🟢 適合：降雨 &lt; 30% 且 陣風 &lt; 30 km/h</div>
   <div class="rule-small">溫度與體感僅供舒適度參考</div>
 </div>
 
 <div class="region-buttons" id="regionButtons"></div>
+
+<!-- ===== 新增搜尋 UI ===== -->
+<div class="search-box">
+  <input type="text" id="searchInput" class="search-input" placeholder="🔍 搜尋球場名稱、地址或區域">
+  <button class="clear-btn" onclick="clearSearch()">清除</button>
+</div>
+
 <div id="courses">載入中...</div>
 
 <script>
@@ -100,6 +125,27 @@ function getWeekday(dateStr){
  const d=new Date(dateStr);
  return["週日","週一","週二","週三","週四","週五","週六"][d.getDay()];
 }
+
+/* ===== 搜尋變數 ===== */
+let searchKeyword="";
+document.addEventListener("DOMContentLoaded",()=>{
+ const input=document.getElementById("searchInput");
+ if(input){
+  input.addEventListener("input",function(){
+   searchKeyword=this.value.trim().toLowerCase();
+   renderCourses();
+  });
+ }
+});
+function clearSearch(){
+ document.getElementById("searchInput").value="";
+ searchKeyword="";
+ renderCourses();
+}
+
+/* ===== 以下完全保留你原始程式碼 ===== */
+
+/* （球場陣列與後續所有邏輯不變） */
 
 /* ===== 全部球場（固定地址版）===== */
 const courses=[
@@ -248,7 +294,20 @@ function createRegionButtons(){
 /* ===== 渲染 ===== */
 function renderCourses(){
  const container=document.getElementById("courses");
- const filtered=selectedRegion==="全部"?courses:courses.filter(c=>c.region===selectedRegion);
+
+ // 先區域過濾
+ let filtered = selectedRegion==="全部"
+  ? courses
+  : courses.filter(c=>c.region===selectedRegion);
+
+ // 再搜尋過濾（名稱 / 地址 / 區域）
+ if(searchKeyword){
+  filtered = filtered.filter(c =>
+   c.name.toLowerCase().includes(searchKeyword) ||
+   c.address.toLowerCase().includes(searchKeyword) ||
+   c.region.toLowerCase().includes(searchKeyword)
+  );
+ }
 
  let html="";
 
@@ -314,7 +373,7 @@ function renderCourses(){
    <div class="days">
     ${daysHTML}
     <div class="toggle-row">
-     <button class="toggle-btn" onclick="toggleDays(this)">展開</button>
+     <button class="toggle-btn" onclick="toggleDays(this)">展開一周詳細天氣</button>
     </div>
    </div>
   </div>`;
@@ -331,18 +390,24 @@ function toggleDays(btn){
   if(i>=DECISION.default_show_days)
    el.style.display=hidden?"block":"none";
  });
- btn.innerText=hidden?"收合":"展開";
+ btn.innerText=hidden?"收合":"展開一周詳細天氣";
 }
-
 /* ===== 載入 ===== */
 async function loadAll(){
  createRegionButtons();
  document.getElementById("courses").innerHTML="載入中...";
- for(const c of courses){
-  weatherCache[c.name]=await getWeeklyWeather(c.lat,c.lon);
-  renderCourses();
- }
+
+ const promises = courses.map(c =>
+  getWeeklyWeather(c.lat,c.lon).then(data=>{
+   weatherCache[c.name]=data;
+  })
+ );
+
+ await Promise.all(promises);
+
+ renderCourses();
 }
+
 loadAll();
 </script>
 
