@@ -148,6 +148,7 @@ h2{text-align:center;margin:10px 0 8px;}
 
 <div class="search-box">
 <input type="text" id="searchInput" class="search-input" placeholder="搜尋球場名稱、地址或區域">
+<button class="clear-btn" onclick="doSearch()">確認</button>
 <button class="clear-btn" onclick="clearSearch()">清除</button>
 </div>
 
@@ -168,9 +169,29 @@ function getWeekday(dateStr){
 
 /* ===== 搜尋 ===== */
 let searchKeyword="";
-document.getElementById("searchInput").addEventListener("input",function(){
- searchKeyword=this.value.trim().toLowerCase();
+
+function doSearch(){
+ searchKeyword=document.getElementById("searchInput").value.trim().toLowerCase();
+
+ if(searchKeyword){
+   selectedRegion="全部";
+   createRegionButtons();
+ }
+
  renderCourses();
+}
+
+function clearSearch(){
+ document.getElementById("searchInput").value="";
+ searchKeyword="";
+ renderCourses();
+}
+
+// 支援 Enter 鍵
+document.getElementById("searchInput").addEventListener("keydown",function(e){
+ if(e.key==="Enter"){
+   doSearch();
+ }
 });
 function clearSearch(){
  document.getElementById("searchInput").value="";
@@ -388,34 +409,94 @@ function renderDecisionCenter(){
  const container=document.getElementById("decisionCenter");
  let html="";
 
- Object.keys(rankingData).forEach(date=>{
-  html+=`<div class="rank-day">
-   <div class="rank-title">📅 ${date}</div>`;
+ const dates=Object.keys(rankingData);
+
+ dates.forEach((date,index)=>{
+
+  const showDefault=index<2; // 預設顯示前2天
+
+  html+=`
+  <div class="card" style="margin-bottom:20px;">
+    <div style="font-size:18px;font-weight:900;cursor:pointer;"
+         onclick="toggleRankDay(this)">
+      📅 ${date}
+      <span style="float:right;font-size:14px;">
+        ${showDefault?"▼":"▶"}
+      </span>
+    </div>
+
+    <div class="rank-day-content" 
+         style="margin-top:15px;display:${showDefault?"block":"none"};">
+  `;
 
   Object.keys(rankingData[date]).forEach(region=>{
-   html+=`<div class="rank-region">📍 ${region}</div>`;
 
-   html+=`<div class="rank-item">🏌️ 早球 Top5</div>`;
-   rankingData[date][region].morning.slice(0,5).forEach((c,i)=>{
-    html+=`<div class="rank-item">${i+1}. ${c.name} – ${c.score}分</div>`;
-    c.reasons.forEach(r=>{
-      html+=`<div class="rank-reason">✔ ${r}</div>`;
-    });
-   });
+   const morningList=rankingData[date][region].morning;
+   const afternoonList=rankingData[date][region].afternoon;
 
-   html+=`<div class="rank-item">🏌️ 午球 Top5</div>`;
-   rankingData[date][region].afternoon.slice(0,5).forEach((c,i)=>{
-    html+=`<div class="rank-item">${i+1}. ${c.name} – ${c.score}分</div>`;
-    c.reasons.forEach(r=>{
-      html+=`<div class="rank-reason">✔ ${r}</div>`;
-    });
-   });
+   html+=`
+   <div style="margin-bottom:18px;padding:14px;border-radius:14px;background:#fafafa;border:1px solid #eee;">
+     <div style="font-size:16px;font-weight:800;margin-bottom:10px;">
+       📍 ${region}
+     </div>
+
+     <div style="display:flex;flex-wrap:wrap;gap:15px;">
+
+       <div style="flex:1;min-width:220px;">
+         <div style="font-weight:800;margin-bottom:6px;">🌅 早球排行榜</div>
+         ${morningList.slice(0,5).map((c,i)=>`
+           <div style="margin-bottom:4px;font-weight:${i===0?'900':'500'};">
+             ${i+1}. ${c.name} – 
+             <span style="color:${scoreColor(c.score)};">
+               ${c.score}分
+             </span>
+           </div>
+         `).join("")}
+       </div>
+
+       <div style="flex:1;min-width:220px;">
+         <div style="font-weight:800;margin-bottom:6px;">🌤 午球排行榜</div>
+         ${afternoonList.slice(0,5).map((c,i)=>`
+           <div style="margin-bottom:4px;font-weight:${i===0?'900':'500'};">
+             ${i+1}. ${c.name} – 
+             <span style="color:${scoreColor(c.score)};">
+               ${c.score}分
+             </span>
+           </div>
+         `).join("")}
+       </div>
+
+     </div>
+   </div>
+   `;
   });
 
-  html+=`</div>`;
+  html+=`
+    </div>
+  </div>
+  `;
  });
 
  container.innerHTML=html;
+}
+
+function scoreColor(score){
+ if(score>=75) return "#16a34a";
+ if(score>=50) return "#ca8a04";
+ return "#dc2626";
+}
+
+function toggleRankDay(header){
+ const content=header.nextElementSibling;
+ const arrow=header.querySelector("span");
+
+ if(content.style.display==="none"){
+  content.style.display="block";
+  arrow.innerText="▼";
+ }else{
+  content.style.display="none";
+  arrow.innerText="▶";
+ }
 }
 
 /* ===== Render 球場卡片 ===== */
@@ -424,13 +505,21 @@ function renderCourses(){
  const container=document.getElementById("courses");
 
  let filtered = courses.filter(c=>{
- const matchRegion = selectedRegion==="全部" || c.region===selectedRegion;
- const matchSearch = !searchKeyword ||
+
+ const matchSearch =
+  !searchKeyword ||
   c.name.toLowerCase().includes(searchKeyword) ||
   c.address.toLowerCase().includes(searchKeyword) ||
   c.region.toLowerCase().includes(searchKeyword);
 
- return matchRegion && matchSearch;
+ // 🔥 有搜尋關鍵字時，忽略區域篩選
+ if(searchKeyword){
+   return matchSearch;
+ }
+
+ // 沒搜尋時才看區域
+ const matchRegion = selectedRegion==="全部" || c.region===selectedRegion;
+ return matchRegion;
 });
 
  if(filtered.length===0){
