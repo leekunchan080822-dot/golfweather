@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>全台灣高爾夫球場天氣 V8.4｜GCI 區域決策中心</title>
+<title>全台灣高爾夫球場天氣 V8.5｜GCI 區域決策中心</title>
 
 <style>
 body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f5f7fa;margin:0;padding:15px;}
@@ -125,11 +125,12 @@ h2{text-align:center;margin:10px 0 8px;}
 
 .decision-center{
  display:none;
- background:#ffffff;
- border-radius:14px;
- padding:16px;
- margin-bottom:18px;
- box-shadow:0 4px 14px rgba(0,0,0,0.1);
+ background:linear-gradient(135deg,#ffffff,#f8fafc);
+ border-radius:18px;
+ padding:20px;
+ margin-bottom:22px;
+ box-shadow:0 10px 30px rgba(0,0,0,0.08);
+ border:1px solid #e5e7eb;
 }
 
 .rank-day{margin-bottom:20px;}
@@ -768,10 +769,13 @@ function renderDecisionCenter(){
   });
 
   html+=`
-  <div class="card" style="margin-bottom:20px;
-      background:#f0fdf4;
-      border:1px solid #bbf7d0;">
-    <div style="font-size:18px;font-weight:900;margin-bottom:10px;">
+  <div class="card" style="
+      margin-bottom:24px;
+      background:linear-gradient(135deg,#dcfce7,#bbf7d0);
+      border:none;
+      box-shadow:0 8px 20px rgba(34,197,94,0.25);
+">
+    <div style="font-size:20px;font-weight:900;margin-bottom:12px;">
       🎯 明日最佳打球建議
     </div>
     <div style="font-size:16px;">
@@ -839,8 +843,17 @@ Object.keys(rankingData[today]).forEach(region=>{
       <div style="cursor:pointer;font-weight:700;"
            onclick="toggleWeekTrend(this)">
 
-        📍 ${region}（今日 ${todayAvg}）
-        <span style="float:right;">▼</span>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+  <div style="font-weight:700;">
+    📍 ${region}
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <span style="font-weight:900;color:#111;">
+      ${todayAvg}
+    </span>
+    <span>▼</span>
+  </div>
+</div>
       </div>
 
       <div style="display:none;margin-top:8px;">
@@ -861,12 +874,12 @@ Object.keys(rankingData[today]).forEach(region=>{
           ${date.slice(5)}（${getWeekday(date)}）
           <span style="float:right;">${avg}</span>
         </div>
-        <div style="background:#e5e7eb;height:6px;border-radius:6px;">
+        <div style="background:#e5e7eb;height:8px;border-radius:999px;">
           <div style="
             width:${width}%;
-            height:6px;
-            background:#3b82f6;
-            border-radius:6px;">
+            height:8px;
+            background:linear-gradient(90deg,#3b82f6,#06b6d4);
+            border-radius:999px;">
           </div>
         </div>
       </div>
@@ -1003,7 +1016,7 @@ renderDecisionCenter();
 
 function toggleWeekTrend(el){
   const content = el.nextElementSibling;
-  const arrow = el.querySelector("span");
+  const arrow = el.querySelector("div span:last-child");
 
   if(content.style.display === "block"){
     content.style.display = "none";
