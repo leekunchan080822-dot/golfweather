@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>全台灣高爾夫球場天氣 V8.3｜GCI 區域決策中心</title>
+<title>全台灣高爾夫球場天氣 V8.4｜GCI 區域決策中心</title>
 
 <style>
 body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f5f7fa;margin:0;padding:15px;}
@@ -815,38 +815,57 @@ function renderDecisionCenter(){
   </div>
   `;
 
-  /* ===== 3️⃣ 今日區域對比 ===== */
+  /* ===== 3️⃣ 區域一週趨勢 ===== */
 
-  const today=dates[0];
+const today=dates[0];
+
+html+=`
+<div class="card">
+  <div style="font-size:16px;font-weight:800;margin-bottom:12px;">
+    📊 區域一週趨勢
+  </div>
+`;
+
+Object.keys(rankingData[today]).forEach(region=>{
+
+  const todayAvg=Math.round(
+    (rankingData[today][region].avgMorning +
+     rankingData[today][region].avgAfternoon)/2
+  );
 
   html+=`
-  <div class="card">
-    <div style="font-size:16px;font-weight:800;margin-bottom:12px;">
-      📊 今日區域對比（${today}）
-    </div>
+    <div style="margin-bottom:12px;border-bottom:1px solid #eee;padding-bottom:8px;">
+
+      <div style="cursor:pointer;font-weight:700;"
+           onclick="toggleWeekTrend(this)">
+
+        📍 ${region}（今日 ${todayAvg}）
+        <span style="float:right;">▼</span>
+      </div>
+
+      <div style="display:none;margin-top:8px;">
   `;
 
-  Object.keys(rankingData[today]).forEach(region=>{
+  dates.forEach(date=>{
 
     const avg=Math.round(
-      (rankingData[today][region].avgMorning +
-       rankingData[today][region].avgAfternoon)/2
+      (rankingData[date][region].avgMorning +
+       rankingData[date][region].avgAfternoon)/2
     );
 
     const width=Math.min(avg,100);
 
     html+=`
-      <div style="margin-bottom:10px;">
-        <div style="font-size:14px;margin-bottom:4px;">
-          ${region}（${avg}）
+      <div style="margin-bottom:6px;">
+        <div style="font-size:13px;">
+          ${date.slice(5)}（${getWeekday(date)}）
+          <span style="float:right;">${avg}</span>
         </div>
-        <div style="background:#e5e7eb;
-                    height:8px;
-                    border-radius:6px;">
+        <div style="background:#e5e7eb;height:6px;border-radius:6px;">
           <div style="
             width:${width}%;
-            height:8px;
-            background:#22c55e;
+            height:6px;
+            background:#3b82f6;
             border-radius:6px;">
           </div>
         </div>
@@ -854,7 +873,13 @@ function renderDecisionCenter(){
     `;
   });
 
-  html+=`</div>`;
+  html+=`
+      </div>
+    </div>
+  `;
+});
+
+html+=`</div>`;
 
   container.innerHTML=html;
 }
@@ -971,10 +996,22 @@ async function loadAll(){
 
  await Promise.all(workers);
 
- renderCourses();
- buildRanking();
- renderDecisionCenter();
+renderCourses();
+buildRanking();
+renderDecisionCenter();
+}
 
+function toggleWeekTrend(el){
+  const content = el.nextElementSibling;
+  const arrow = el.querySelector("span");
+
+  if(content.style.display === "block"){
+    content.style.display = "none";
+    arrow.innerText = "▼";
+  }else{
+    content.style.display = "block";
+    arrow.innerText = "▲";
+  }
 }
 
 loadAll();
