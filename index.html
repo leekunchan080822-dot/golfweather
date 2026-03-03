@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>全台灣高爾夫球場天氣 V8.1｜GCI 區域決策中心</title>
+<title>全台灣高爾夫球場天氣 V8.2｜GCI 區域決策中心</title>
 
 <style>
 body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f5f7fa;margin:0;padding:15px;}
@@ -181,13 +181,13 @@ h2{text-align:center;margin:10px 0 8px;}
 
 <div class="header-info" id="dateInfo"></div>
 <div class="header-info">資料來源：Open-Meteo ECMWF｜GCI 真實高爾夫模型</div>
-<h2>全台灣高爾夫球場天氣 V8.1</h2>
+<h2>全台灣高爾夫球場天氣</h2>
 
 <div class="rule-box">
   <div class="rule-title">GCI 真實高爾夫舒適指數模型</div>
 
   非線性扣分：雨量 > 機率 > 溫度 > 風<br>
-  左邊：早球08-12 / 右邊：午球12-18
+  早球：08:00-12:00｜午球：12:01-18:00
 
   <div style="margin-top:10px;font-size:13px;">
     <b>色塊說明：</b><br>
@@ -597,6 +597,19 @@ function renderCourses(){
              </div>
              雨量 ${day.rainMorning}mm<br>
              機率 ${day.popMorning}%<br>
+<div style="
+  height:6px;
+  background:#e5e7eb;
+  border-radius:6px;
+  overflow:hidden;
+  margin:4px 0 6px 0;
+">
+  <div style="
+    width:${day.popMorning}%;
+    height:100%;
+    background:#3b82f6;
+  "></div>
+</div>
              體感 ${day.tempMorning}℃
            </div>
 
@@ -613,6 +626,19 @@ function renderCourses(){
              </div>
              雨量 ${day.rainAfternoon}mm<br>
              機率 ${day.popAfternoon}%<br>
+<div style="
+  height:6px;
+  background:#e5e7eb;
+  border-radius:6px;
+  overflow:hidden;
+  margin:4px 0 6px 0;
+">
+  <div style="
+    width:${day.popAfternoon}%;
+    height:100%;
+    background:#3b82f6;
+  "></div>
+</div>
              體感 ${day.tempAfternoon}℃
            </div>
 
@@ -701,9 +727,60 @@ function buildRanking(){
 /* ===== 決策中心渲染 ===== */
 
 function renderDecisionCenter(){
+/***** 本週最佳日統計 *****/
+
+let bestMorningDay = "";
+let bestMorningDayScore = -1;
+
+let bestAfternoonDay = "";
+let bestAfternoonDayScore = -1;
+
+Object.keys(rankingData).forEach(date=>{
+
+  let regions = Object.keys(rankingData[date]);
+
+  if(regions.length === 0) return;
+
+  let avgMorningAll = 0;
+  let avgAfternoonAll = 0;
+
+  regions.forEach(r=>{
+    avgMorningAll += rankingData[date][r].avgMorning;
+    avgAfternoonAll += rankingData[date][r].avgAfternoon;
+  });
+
+  avgMorningAll = Math.round(avgMorningAll / regions.length);
+  avgAfternoonAll = Math.round(avgAfternoonAll / regions.length);
+
+  if(avgMorningAll > bestMorningDayScore){
+    bestMorningDayScore = avgMorningAll;
+    bestMorningDay = date;
+  }
+
+  if(avgAfternoonAll > bestAfternoonDayScore){
+    bestAfternoonDayScore = avgAfternoonAll;
+    bestAfternoonDay = date;
+  }
+
+});
 
  const container=document.getElementById("decisionCenter");
  let html="";
+html += `
+<div class="card" style="margin-bottom:25px;background:#f0fdf4;border:1px solid #bbf7d0;">
+  <div style="font-weight:900;font-size:18px;margin-bottom:8px;">
+    🏆 本週最佳打球日
+  </div>
+
+  🌅 早球最佳：
+  <b>${bestMorningDay}（${getWeekday(bestMorningDay)}）</b>
+  ${bestMorningDayScore}分<br><br>
+
+  🌤 午球最佳：
+  <b>${bestAfternoonDay}（${getWeekday(bestAfternoonDay)}）</b>
+  ${bestAfternoonDayScore}分
+</div>
+`;
  const dates=Object.keys(rankingData).sort();
 
  dates.forEach((date,index)=>{
