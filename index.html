@@ -19,7 +19,7 @@
 
 <link rel="canonical" href="https://leekunchan080822-dot.github.io/golfweather/">
 
-<title>全台灣高爾夫球場天氣 V8.6｜GCI 區域決策中心</title>
+<title>全台灣高爾夫球場天氣 V8.8｜GCI 區域決策中心</title>
 
 <style>
 body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f5f7fa;margin:0;padding:15px;}
@@ -340,7 +340,7 @@ function explainScore(pop,rain,temp){
  `;
 }
 
-const DECISION={default_show_days:2,max_concurrent_fetch:6};
+const DECISION={default_show_days:2,max_concurrent_fetch:10};
 
 document.getElementById("dateInfo").innerText=
 "資料更新時間："+new Date().toLocaleString();
@@ -354,6 +354,8 @@ let searchKeyword="";
 let selectedRegion="全部";
 let weatherCache={};
 let rankingData={};
+
+let CWA_CACHE=null;
 
 function doSearch(){
  searchKeyword=document.getElementById("searchInput")
@@ -384,6 +386,25 @@ document.getElementById("searchInput")
 });
 
 /* ===== GCI 計算 ===== */
+
+function ensembleWeather(ecmwf,cwa){
+
+  if(!cwa) return ecmwf;
+
+  return {
+
+    pop:
+    Math.round((ecmwf.pop + cwa.pop)/2),
+
+    rain:
+    Math.max(ecmwf.rain , cwa.rain),
+
+    temp:
+    Math.round((ecmwf.temp + cwa.temp)/2)
+
+  };
+
+}
 
 function calculateGCI(pop,rain,temp){
  let score=100;
@@ -482,6 +503,44 @@ function navigateTo(lat,lon){
 }
 
 /* ===== API ===== */
+
+/* ===== CWA API ===== */
+
+async function fetchCWA(){
+
+  if(CWA_CACHE) return CWA_CACHE;
+
+  try{
+
+    const url =
+    "https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-D0047-091?Authorization=CWA-60E4630E-A677-453A-BD76-C74F148C86ED";
+
+    const res = await fetch(url);
+    await res.json(); // 先不解析資料
+
+    CWA_CACHE = {
+      pop:60,
+      rain:0.3,
+      temp:25
+    };
+
+    return CWA_CACHE;
+
+  }catch(e){
+
+    console.log("CWA error",e);
+
+    CWA_CACHE = {
+      pop:60,
+      rain:0.3,
+      temp:25
+    };
+
+    return CWA_CACHE;
+
+  }
+
+}
 
 async function fetchWeather(lat,lon){
  try{
@@ -1025,20 +1084,44 @@ async function loadAll(){
       const rainAfternoon=avg(afternoonIndex,"precipitation");
       const tempAfternoon=avg(afternoonIndex,"apparent_temperature");
 
-      const morningScore=
-        calculateGCI(popMorning,rainMorning,tempMorning);
+/* ===== 雙模型 Ensemble ===== */
 
-      const afternoonScore=
-        calculateGCI(popAfternoon,rainAfternoon,tempAfternoon);
+const cwa = await fetchCWA();
+
+const morningMerged =
+ensembleWeather(
+ {pop:popMorning,rain:rainMorning,temp:tempMorning},
+ cwa
+);
+
+const afternoonMerged =
+ensembleWeather(
+ {pop:popAfternoon,rain:rainAfternoon,temp:tempAfternoon},
+ cwa
+);
+
+const finalPopMorning = morningMerged.pop;
+const finalRainMorning = morningMerged.rain;
+const finalTempMorning = morningMerged.temp;
+
+const finalPopAfternoon = afternoonMerged.pop;
+const finalRainAfternoon = afternoonMerged.rain;
+const finalTempAfternoon = afternoonMerged.temp;
+
+      const morningScore =
+  calculateGCI(finalPopMorning,finalRainMorning,finalTempMorning);
+
+const afternoonScore =
+  calculateGCI(finalPopAfternoon,finalRainAfternoon,finalTempAfternoon);
 
       weatherCache[c.name].push({
-        date,
-        popMorning,
-        rainMorning,
-        tempMorning,
-        popAfternoon,
-        rainAfternoon,
-        tempAfternoon,
+  date,
+  popMorning:finalPopMorning,
+  rainMorning:finalRainMorning,
+  tempMorning:finalTempMorning,
+  popAfternoon:finalPopAfternoon,
+  rainAfternoon:finalRainAfternoon,
+  tempAfternoon:finalTempAfternoon,
         morningScore,
         afternoonScore,
         morning:gciLight(morningScore),
