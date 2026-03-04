@@ -19,7 +19,7 @@
 
 <link rel="canonical" href="https://leekunchan080822-dot.github.io/golfweather/">
 
-<title>全台灣高爾夫球場天氣 V8.6｜GCI 區域決策中心</title>
+<title>全台灣高爾夫球場天氣 V10｜GCI 區域決策中心</title>
 
 <style>
 body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f5f7fa;margin:0;padding:15px;}
@@ -154,6 +154,35 @@ h2{text-align:center;margin:10px 0 8px;}
 .rank-region{font-weight:800;margin-top:10px;}
 .rank-item{font-size:13px;margin-left:10px;margin-bottom:3px;}
 .rank-reason{font-size:12px;color:#555;margin-left:22px;margin-bottom:6px;}
+
+/* ===== 雷暴警示動畫 ===== */
+
+.thunder-alert{
+  color:#dc2626;
+  font-weight:700;
+  animation:thunderFlash 1.6s infinite;
+}
+
+@keyframes thunderFlash{
+  0%{opacity:1;}
+  50%{opacity:0.4;}
+  100%{opacity:1;}
+}
+
+/* ===== 模型分歧警示 ===== */
+
+.model-warning{
+  color:#f97316;
+  font-weight:700;
+  animation:modelPulse 2.2s infinite;
+}
+
+@keyframes modelPulse{
+  0%{opacity:1;}
+  50%{opacity:0.6;}
+  100%{opacity:1;}
+}
+
 </style>
 </head>
 
@@ -197,7 +226,7 @@ h2{text-align:center;margin:10px 0 8px;}
 </div>
 
 <div class="header-info" id="dateInfo"></div>
-<div class="header-info">資料來源：Open-Meteo ECMWF｜GCI 真實高爾夫模型</div>
+<div class="header-info">資料來源：Open-Meteo 多模型（ECMWF / GFS / ICON / GEM）＋中央氣象署</div>
 <h2>全台灣高爾夫球場天氣</h2>
 
 <div class="rule-box">
@@ -213,48 +242,78 @@ h2{text-align:center;margin:10px 0 8px;}
   <b>擊球時段：</b>
   早球（08:00–12:00）｜
   午球（12:01–18:00）
-
-</div>
-
 <div style="margin-top:12px;">
-  <span style="font-size:12px;color:#2563eb;cursor:pointer;"
-        onclick="toggleModelDetail(this)">
-    查看專業模型說明 ▼
-  </span>
+<span style="font-size:12px;color:#2563eb;cursor:pointer;"
+onclick="toggleModelDetail(this)">
+查看專業模型說明 ▼
+</span>
 </div>
-
 <div style="display:none;margin-top:8px;font-size:13px;line-height:1.6;color:#444;">
-  本指數（Golf Comfort Index, GCI）採用多因子非線性加權模型，
-  以降雨量、降雨機率與體感溫度為核心變數，
-  透過階梯式扣分機制模擬實際打球體驗影響程度，
-  並計算 0–100 綜合舒適分數。
 
-  <br><br>
+本系統的高爾夫舒適指數（Golf Comfort Index, GCI）為專門針對戶外擊球環境設計的氣象評估模型，
+透過多項氣象因子計算 0–100 的綜合舒適分數，
+用於判斷各球場在不同時段的實際打球體驗。
 
-  天氣資料來源為 Open-Meteo ECMWF 數值預報模型，
-  使用逐小時預測資料，
-  並取各時段區間平均後計算指數，
-  以提高實際決策準確度。
-</div>
+<br><br>
 
-  <div style="margin-top:12px;font-size:13px;">
-    <b>色塊說明：</b><br>
+<b>模型核心評估因子：</b><br>
 
-    <span style="background:#dcfce7;padding:4px 8px;border-radius:8px;">
-      🟢 綠色 75–100
-    </span>
-    適合打球｜降雨影響低<br>
+• <b>降雨量（Rain）</b>：影響球道與果嶺狀況，是打球體驗最關鍵因素<br>
+• <b>降雨機率（PoP）</b>：反映天氣不確定性與可能降雨風險<br>
+• <b>體感溫度（Apparent Temperature）</b>：評估實際戶外活動舒適度<br>
+• <b>露點（Dew Point）</b>：反映濕悶程度與體感悶熱感<br>
+• <b>風速（Wind Speed）</b>：影響擊球穩定性與舒適感
 
-    <span style="background:#fef3c7;padding:4px 8px;border-radius:8px;">
-      🟡 黃色 50–74
-    </span>
-    可評估｜可能有小雨或偏涼<br>
+<br><br>
 
-    <span style="background:#ffe4e6;padding:4px 8px;border-radius:8px;">
-      🔴 紅色 0–49
-    </span>
-    不建議｜雨量或降雨機率偏高
-  </div>
+系統採用<b>非線性階梯式扣分機制</b>，
+模擬不同氣象條件對實際擊球體驗的影響程度，
+並將各因素整合為四個評分模組：
+
+<br>
+
+• <b>Rain Score（50%）</b>：降雨量與降雨機率的綜合影響<br>
+• <b>Comfort Score（30%）</b>：體感溫度與風速舒適度<br>
+• <b>Dew Score（10%）</b>：濕度與悶熱程度<br>
+• <b>Safety Score（10%）</b>：強降雨與對流天氣風險
+
+<br><br>
+
+<b>天氣資料來源：</b><br>
+
+本系統使用 Open-Meteo 多模型數值預報系統，
+整合以下全球氣象模式：
+
+• ECMWF（歐洲中期預報中心）<br>
+• GFS（美國全球預報系統）<br>
+• ICON（德國氣象局數值模式）<br>
+• GEM（加拿大全球環境模式）
+
+並融合中央氣象署（CWA）區域預報資料，
+透過 Ensemble 多模型平均降低單一模式誤差。
+
+<br><br>
+
+降雨量與降雨機率採用<b>Top-2 Ensemble 方法</b>，
+取多模型中較高的兩組預測值平均，
+以避免低估降雨風險。
+
+<br><br>
+
+系統使用<b>逐小時預報資料</b>，
+並將各小時數據整合為兩個擊球時段：
+
+• 🌅 早球：08:00 – 12:00<br>
+• 🌤 午球：12:00 – 18:00
+
+再依據該時段的平均氣象條件計算 GCI 指數。
+
+<br><br>
+
+此外系統亦會偵測<b>模型分歧</b>，
+當不同氣象模式對降雨或風速預測差異過大時，
+會降低預報信心並顯示提示，
+協助使用者判斷天氣預報的不確定性。
 
 </div>
 
@@ -354,6 +413,7 @@ let searchKeyword="";
 let selectedRegion="全部";
 let weatherCache={};
 let rankingData={};
+let cwaCache=null;
 
 function doSearch(){
  searchKeyword=document.getElementById("searchInput")
@@ -370,8 +430,14 @@ function doSearch(){
 }
 
 function clearSearch(){
+
  document.getElementById("searchInput").value="";
  searchKeyword="";
+
+ selectedRegion="全部";
+
+ createRegionButtons();
+
 
  closeDecision();   // 🔥 加這行
 
@@ -383,38 +449,135 @@ document.getElementById("searchInput")
  if(e.key==="Enter"){ doSearch(); }
 });
 
-/* ===== GCI 計算 ===== */
 
-function calculateGCI(pop,rain,temp){
- let score=100;
+/* ===== GCI 計算（V2 演算法） ===== */
 
- if(rain<=0.1) score-=0;
- else if(rain<=0.5) score-=8;
- else if(rain<=1) score-=18;
- else if(rain<=2) score-=35;
- else score-=60;
+function calculateGCI(pop,rain,temp,dew,wind){
 
- if(pop<=20) score-=0;
- else if(pop<=40) score-=5;
- else if(pop<=60) score-=12;
- else if(pop<=80) score-=22;
- else score-=35;
+/* ===== 雨量扣分 ===== */
 
- let tempPenalty=0;
+let rainPenalty=0;
 
- if(temp>=26) tempPenalty=0;
- else if(temp>=22) tempPenalty=2;
- else if(temp>=20) tempPenalty=5;
- else if(temp>=18) tempPenalty=10;
- else if(temp>=16) tempPenalty=18;
- else tempPenalty=30;
+if(rain<=0.1) rainPenalty=0;
+else if(rain<=0.5) rainPenalty=8;
+else if(rain<=1) rainPenalty=18;
+else if(rain<=2) rainPenalty=35;
+else rainPenalty=60;
 
- if(rain<0.2) tempPenalty*=0.5;
+/* ===== 降雨機率扣分 ===== */
 
- score-=tempPenalty;
+let popPenalty=0;
 
- return Math.max(0,Math.min(100,Math.round(score)));
+if(pop<=20) popPenalty=0;
+else if(pop<=40) popPenalty=5;
+else if(pop<=60) popPenalty=12;
+else if(pop<=80) popPenalty=22;
+else popPenalty=35;
+
+/* ===== 溫度扣分 ===== */
+
+let tempPenalty=0;
+
+if(temp>=26) tempPenalty=0;
+else if(temp>=22) tempPenalty=2;
+else if(temp>=20) tempPenalty=5;
+else if(temp>=18) tempPenalty=10;
+else if(temp>=16) tempPenalty=18;
+else tempPenalty=30;
+
+/* 低雨量時溫度影響減半 */
+
+if(rain<0.2){
+ tempPenalty=Math.round(tempPenalty*0.5);
 }
+
+/* ===== 露點扣分 ===== */
+
+let dewPenalty=0;
+
+if(dew<16) dewPenalty=0;
+else if(dew<=20) dewPenalty=2;
+else if(dew<=23) dewPenalty=5;
+else if(dew<=26) dewPenalty=10;
+else dewPenalty=15;
+
+/* ===== 風速扣分 ===== */
+
+let windPenalty=0;
+
+if(wind<=2) windPenalty=1;
+else if(wind<=5) windPenalty=0;
+else if(wind<=8) windPenalty=3;
+else if(wind<=12) windPenalty=8;
+else windPenalty=15;
+
+/* ===== Interaction 修正 ===== */
+
+let interaction=0;
+
+/* 高溫 + 風 → 舒適 */
+
+if(temp>30 && wind>5){
+ interaction+=2;
+}
+
+/* 高溫 + 無風 → 悶熱 */
+
+if(temp>30 && wind<=1){
+ interaction-=2;
+}
+
+/* 高溫 + 高露點 → 悶熱 */
+
+if(temp>30 && dew>23){
+ interaction-=3;
+}
+
+/* 高機率但低雨量 */
+
+if(pop>70 && rain<1){
+ popPenalty=Math.round(popPenalty*0.5);
+}
+
+/* ===== 分層 GCI ===== */
+
+let rainScore=
+100-rainPenalty-popPenalty;
+
+let comfortScore=
+100-tempPenalty-windPenalty;
+
+let dewScore=
+Math.max(0,100-dewPenalty);
+
+/* ===== Safety Score（雷暴風險） ===== */
+
+let safetyPenalty=0;
+
+if(pop>=80 && rain>=5){
+ safetyPenalty=25;
+}
+else if(pop>=70 && rain>=3){
+ safetyPenalty=15;
+}
+
+let safetyScore=100-safetyPenalty;
+
+/* ===== 最終 GCI ===== */
+
+let gci=
+0.5*rainScore+
+0.3*comfortScore+
+0.1*dewScore+
+0.1*safetyScore+
+interaction;
+
+return Math.max(0,Math.min(100,Math.round(gci)));
+
+}
+
+
+
 
 function gciLight(score){
  if(score>=75) return {cls:"green",icon:"🟢"};
@@ -440,10 +603,19 @@ function reasonText(pop,rain,temp){
 }
 
 function rankSort(a,b){
- if(b.score!==a.score) return b.score-a.score;
- if(a.rain!==b.rain) return a.rain-b.rain;
- if(a.pop!==b.pop) return a.pop-b.pop;
- return b.temp-a.temp;
+ const s1=b.score||0;
+ const s2=a.score||0;
+ if(s1!==s2) return s1-s2;
+
+ const r1=a.rain||0;
+ const r2=b.rain||0;
+ if(r1!==r2) return r1-r2;
+
+ const p1=a.pop||0;
+ const p2=b.pop||0;
+ if(p1!==p2) return p1-p2;
+
+ return (b.temp||0)-(a.temp||0);
 }
 
 function scoreColor(score){
@@ -481,18 +653,277 @@ function navigateTo(lat,lon){
  );
 }
 
+async function loadCWA(){
+
+ const CWA_API="CWA-60E4630E-A677-453A-BD76-C74F148C86ED";
+
+ try{
+
+  const cwaURL=
+  `https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-D0047-091?Authorization=${CWA_API}`;
+
+  const r=await fetch(cwaURL);
+  cwaCache=await r.json();
+
+ }catch(e){
+  console.log("CWA資料讀取失敗");
+ }
+
+}
+
+function getCountyFromAddress(address){
+
+ if(address.includes("新北") || address.includes("台北")) return "新北市";
+ if(address.includes("桃園")) return "桃園市";
+ if(address.includes("新竹")) return "新竹縣";
+ if(address.includes("苗栗")) return "苗栗縣";
+ if(address.includes("臺中") || address.includes("台中")) return "臺中市";
+ if(address.includes("彰化")) return "彰化縣";
+ if(address.includes("南投")) return "南投縣";
+ if(address.includes("嘉義")) return "嘉義縣";
+ if(address.includes("臺南") || address.includes("台南")) return "臺南市";
+ if(address.includes("高雄")) return "高雄市";
+ if(address.includes("屏東")) return "屏東縣";
+ if(address.includes("宜蘭")) return "宜蘭縣";
+ if(address.includes("花蓮")) return "花蓮縣";
+
+ return null;
+}
+
 /* ===== API ===== */
 
-async function fetchWeather(lat,lon){
+async function fetchWeather(lat,lon,address){
+
  try{
-  const url=
-  `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=precipitation,precipitation_probability,apparent_temperature&timezone=Asia%2FTaipei&forecast_days=7`;
-  const res=await fetch(url);
-  return await res.json();
+
+  /* ===== Open-Meteo 四模型 ===== */
+
+  const models=["ecmwf","gfs","icon","gem"];
+
+  const requests=models.map(model=>{
+
+   const url=
+   `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=precipitation,precipitation_probability,apparent_temperature,dew_point,windspeed_10m&timezone=Asia%2FTaipei&forecast_days=7&models=${model}`;
+
+   return fetch(url).then(r=>r.json());
+
+  });
+
+  const results=await Promise.all(requests);
+
+  /* ===== 使用已載入 CWA ===== */
+
+let cwaPop=0;
+let cwaTemp=0;
+
+try{
+
+ const county = getCountyFromAddress(address);
+
+ let locationData=null;
+
+ if(county && cwaCache){
+
+  const locations=cwaCache.records.locations[0].location;
+
+  locationData = locations.find(l => 
+   l.locationName.includes(
+    county.replace("市","").replace("縣","")
+   )
+  );
+
+ }
+
+ if(!locationData && cwaCache?.records?.locations?.[0]?.location){
+  locationData=cwaCache.records.locations[0].location[0];
+}
+
+ if(locationData){
+
+  const loc=locationData.weatherElement;
+
+  const popElement=loc.find(e=>e.elementName==="PoP12h");
+  const tempElement=loc.find(e=>e.elementName==="AT");
+
+  if(popElement){
+   cwaPop=parseInt(popElement.time[0].elementValue[0].value)||0;
+  }
+
+  if(tempElement){
+   cwaTemp=parseFloat(tempElement.time[0].elementValue[0].value)||0;
+  }
+
+ }
+
+}catch(e){
+ console.log("CWA解析失敗");
+}
+
+
+  /* ===== 取 ECMWF 作為時間基準 ===== */
+
+  const base=results[0];
+
+  if(!base.hourly) return base;
+
+  const hours=base.hourly.time.length;
+
+  const merged={
+ hourly:{
+  time:base.hourly.time,
+  precipitation:[],
+  precipitation_probability:[],
+  apparent_temperature:[],
+  dew_point:[],
+  windspeed_10m:[],
+  model_warning:[],
+  confidence:[]
+ }
+};
+
+  for(let i=0;i<hours;i++){
+
+   let rainList=[];
+let popList=[];
+let tempList=[];
+let dewList=[];
+let windList=[];
+
+/* ===== 模型分歧偵測 ===== */
+
+let popRaw=[];
+let windRaw=[];
+
+   results.forEach(m=>{
+
+ if(!m.hourly) return;
+
+ const rain=m.hourly.precipitation?.[i]||0;
+ const pop=m.hourly.precipitation_probability?.[i]||0;
+ const temp=m.hourly.apparent_temperature?.[i]||0;
+ const dew=m.hourly.dew_point?.[i]||0;
+ const wind=m.hourly.windspeed_10m?.[i]||0;
+
+ rainList.push(rain);
+popList.push(pop);
+tempList.push(temp);
+dewList.push(dew);
+windList.push(wind);
+
+/* ===== 保存原始模型值 ===== */
+
+ popRaw.push(pop);
+ windRaw.push(wind);
+
+});
+
+   /* ===== 加入 CWA 第五模型 ===== */
+
+   popList.push(cwaPop);
+   tempList.push(cwaTemp);
+
+   /* ===== Rain / POP Top2 ===== */
+
+   rainList.sort((a,b)=>b-a);
+   popList.sort((a,b)=>b-a);
+
+   const rainAvg =
+ rainList.length>1
+  ? (rainList[0]+rainList[1])/2
+  : rainList[0] || 0;
+
+   const popAvg =
+popList.length>1
+ ? (popList[0]+popList[1])/2
+ : popList[0] || 0;
+
+/* ===== 模型分歧判定 ===== */
+
+let modelWarning=false;
+
+const maxPop = popRaw.length ? Math.max(...popRaw) : 0;
+const minPop = popRaw.length ? Math.min(...popRaw) : 0;
+
+if(maxPop-minPop>=35){
+ modelWarning=true;
+}
+
+/* ===== Wind divergence ===== */
+
+const maxWind = windRaw.length ? Math.max(...windRaw) : 0;
+const minWind = windRaw.length ? Math.min(...windRaw) : 0;
+
+if(maxWind-minWind>=4){
+ modelWarning=true;
+}
+
+   /* ===== Ensemble 權重計算 ===== */
+
+/* 模型順序
+0 ECMWF
+1 GFS
+2 ICON
+3 GEM
+*/
+
+/* ===== Temp Ensemble ===== */
+
+let tempAvg;
+
+if(cwaTemp>0){
+
+tempAvg =
+0.25*(tempList[0]||0) +
+0.20*(tempList[1]||0) +
+0.15*(tempList[2]||0) +
+0.10*(tempList[3]||0) +
+0.30*cwaTemp;
+
+}else{
+
+tempAvg =
+(tempList[0]+tempList[1]+tempList[2]+tempList[3])/4;
+
+}
+
+const dewAvg =
+0.40*(dewList[0] ?? 0) +
+0.25*(dewList[1] ?? 0) +
+0.20*(dewList[2] ?? 0) +
+0.15*(dewList[3] ?? 0);
+
+const windAvg =
+0.30*(windList[0] ?? 0) +
+0.25*(windList[1] ?? 0) +
+0.25*(windList[2] ?? 0) +
+0.20*(windList[3] ?? 0);
+
+   merged.hourly.precipitation.push(rainAvg);
+   merged.hourly.precipitation_probability.push(popAvg);
+   merged.hourly.apparent_temperature.push(tempAvg);
+   merged.hourly.dew_point.push(dewAvg);
+merged.hourly.windspeed_10m.push(windAvg);
+   merged.hourly.model_warning.push(modelWarning);
+
+const divergence =
+Math.max(maxPop-minPop,(maxWind-minWind)*4);
+
+const confidence=
+Math.min(100,Math.max(0,100-divergence));
+
+merged.hourly.confidence.push(confidence);
+
+  }
+
+  return merged;
+
  }catch(e){
+
   console.error("API錯誤",e);
   return {};
+
  }
+
 }
 
 /* ===== courses 陣列（完整保留） ===== */
@@ -645,10 +1076,12 @@ function renderCourses(){
      html+=`
      <div class="day-block">
        <div class="day-title"
-         onclick="this.nextElementSibling.style.display=
-         this.nextElementSibling.style.display==='none'?'block':'none'">
-         📅 ${day.date}（${getWeekday(day.date)}）
-       </div>
+onclick="
+const el=this.nextElementSibling;
+el.style.display=(el.style.display==='none')?'block':'none';
+">
+📅 ${day.date}（${getWeekday(day.date)}）
+</div>
 
        <div style="display:${showDefault?'block':'none'}">
          <div class="period-box">
@@ -679,7 +1112,17 @@ function renderCourses(){
     background:#3b82f6;
   "></div>
 </div>
-             體感 ${day.tempMorning}℃
+             體感 ${day.tempMorning}℃<br>
+             風速 ${day.windMorning} m/s<br>
+             預報信心 ${day.confidenceMorning}%
+             ${day.warningMorning?
+"<span class='model-warning'>⚠ 模型分歧</span>":""}
+
+${day.thunderMorning==="high"?
+"<span class='thunder-alert'>⚡ 雷暴風險</span>":""}
+
+${day.thunderMorning==="medium"?
+"<span style='color:#ea580c;font-weight:700'>⛈ 對流風險</span>":""}
            </div>
 
            <div class="period ${day.afternoon.cls}"
@@ -708,7 +1151,17 @@ function renderCourses(){
     background:#3b82f6;
   "></div>
 </div>
-             體感 ${day.tempAfternoon}℃
+             體感 ${day.tempAfternoon}℃<br>
+             風速 ${day.windAfternoon} m/s<br>
+             預報信心 ${day.confidenceAfternoon}%
+             ${day.warningAfternoon?
+"<span class='model-warning'>⚠ 模型分歧</span>":""}
+
+${day.thunderAfternoon==="high"?
+"<span class='thunder-alert'>⚡ 雷暴風險</span>":""}
+
+${day.thunderAfternoon==="medium"?
+"<span style='color:#ea580c;font-weight:700'>⛈ 對流風險</span>":""}
            </div>
 
          </div>
@@ -746,20 +1199,26 @@ function buildRanking(){
      };
 
    rankingData[day.date][course.region].morning.push({
-     name:course.name,
-     score:day.morningScore,
-     rain:day.rainMorning,
-     pop:day.popMorning,
-     temp:day.tempMorning
-   });
+ name:course.name,
+ score:day.morningScore,
+ rain:day.rainMorning,
+ pop:day.popMorning,
+ temp:day.tempMorning,
+ thunder:day.thunderMorning,
+ confidence:day.confidenceMorning,
+ warning:day.warningMorning
+});
 
    rankingData[day.date][course.region].afternoon.push({
-     name:course.name,
-     score:day.afternoonScore,
-     rain:day.rainAfternoon,
-     pop:day.popAfternoon,
-     temp:day.tempAfternoon
-   });
+ name:course.name,
+ score:day.afternoonScore,
+ rain:day.rainAfternoon,
+ pop:day.popAfternoon,
+ temp:day.tempAfternoon,
+ thunder:day.thunderAfternoon,
+ confidence:day.confidenceAfternoon,
+ warning:day.warningAfternoon
+});
 
   });
 
@@ -791,16 +1250,130 @@ function buildRanking(){
 
  });
 
+/* ===== 本週最佳開球日 ===== */
+
+let bestDate="";
+let bestScore=-1;
+
+Object.keys(rankingData).forEach(date=>{
+
+ let total=0;
+ let count=0;
+
+ Object.keys(rankingData[date]).forEach(region=>{
+
+  total+=rankingData[date][region].avgMorning;
+  total+=rankingData[date][region].avgAfternoon;
+
+  count+=2;
+
+ });
+
+ const avg = count ? Math.round(total/count) : 0;
+
+ if(avg>bestScore){
+  bestScore=avg;
+  bestDate=date;
+ }
+
+});
+
+rankingData.bestDay={
+ date:bestDate,
+ score:bestScore
+};
+
+/* ===== 全台 Top5 ===== */
+
+/* ===== 全台 Top5（排除雷暴） ===== */
+
+rankingData.topCourses={};
+
+Object.keys(rankingData).forEach(date=>{
+
+ if(date==="bestDay") return;
+
+ let allMorning=[];
+ let allAfternoon=[];
+
+ Object.keys(rankingData[date]).forEach(region=>{
+
+  /* 排除雷暴球場 */
+
+  const m =
+   rankingData[date][region].morning
+   .filter(c=>c.thunder!=="high");
+
+  const a =
+   rankingData[date][region].afternoon
+   .filter(c=>c.thunder!=="high");
+
+  allMorning=allMorning.concat(m);
+  allAfternoon=allAfternoon.concat(a);
+
+ });
+
+ allMorning.sort(rankSort);
+ allAfternoon.sort(rankSort);
+
+ rankingData.topCourses[date]={
+  morning:allMorning.slice(0,5),
+  afternoon:allAfternoon.slice(0,5)
+ };
+
+});
+
 }
 
 /* ===== 決策中心渲染 ===== */
+
+/* ===== 未來三天最佳打球日 ===== */
+
+function findBest3Days(){
+
+ const dates=Object.keys(rankingData)
+   .filter(d=>d!=="bestDay" && d!=="topCourses")
+   .sort();
+
+ let result=[];
+
+ dates.forEach(date=>{
+
+  let total=0;
+  let count=0;
+
+  Object.keys(rankingData[date]).forEach(region=>{
+
+   total+=rankingData[date][region].avgMorning;
+   total+=rankingData[date][region].avgAfternoon;
+
+   count+=2;
+
+  });
+
+  const avg = count ? Math.round(total/count) : 0;
+
+  result.push({
+   date:date,
+   score:avg
+  });
+
+ });
+
+ result.sort((a,b)=>b.score-a.score);
+
+ return result.slice(0,3);
+
+}
 
 function renderDecisionCenter(){
 
   const container=document.getElementById("decisionCenter");
   let html="";
 
-  const dates=Object.keys(rankingData).sort();
+  const dates=Object.keys(rankingData)
+.filter(d=>d!=="bestDay" && d!=="topCourses")
+.sort();
   if(dates.length===0){
     container.innerHTML="<div class='card'>尚無資料</div>";
     return;
@@ -808,20 +1381,44 @@ function renderDecisionCenter(){
 
   /* ===== 1️⃣ 明日最佳建議 ===== */
 
-  const tomorrow=dates[1] || dates[0];
+  const tomorrow=dates.length>1 ? dates[1] : dates[0];
   let bestRegion="";
   let bestScore=-1;
 
   Object.keys(rankingData[tomorrow]).forEach(region=>{
-    const avg = Math.round(
-      (rankingData[tomorrow][region].avgMorning +
-       rankingData[tomorrow][region].avgAfternoon)/2
-    );
-    if(avg>bestScore){
-      bestScore=avg;
-      bestRegion=region;
-    }
-  });
+
+  const r = rankingData[tomorrow][region];
+
+  let score = Math.round(
+    (r.avgMorning + r.avgAfternoon)/2
+  );
+
+  /* ===== 雷暴風險懲罰 ===== */
+
+  const thunderRisk =
+    r.morning.some(c=>c.rain>=5 && c.pop>=80) ||
+    r.afternoon.some(c=>c.rain>=5 && c.pop>=80);
+
+  if(thunderRisk){
+    score -= 15;
+  }
+
+  /* ===== 模型分歧懲罰 ===== */
+
+  const divergence =
+    r.morning.some(c=>c.warning) ||
+    r.afternoon.some(c=>c.warning);
+
+  if(divergence){
+    score -= 5;
+  }
+
+  if(score > bestScore){
+    bestScore = score;
+    bestRegion = region;
+  }
+
+});
 
   html+=`
   <div class="card" style="
@@ -843,8 +1440,9 @@ function renderDecisionCenter(){
 
   /* ===== 2️⃣ 本週最佳日 ===== */
 
-  let bestDay="";
-  let bestDayScore=-1;
+
+  let bestDay=rankingData.bestDay.date;
+let bestDayScore=rankingData.bestDay.score;
 
   dates.forEach(date=>{
     let total=0;
@@ -856,7 +1454,7 @@ function renderDecisionCenter(){
       count+=2;
     });
 
-    const avg=Math.round(total/count);
+    const avg = count ? Math.round(total/count) : 0;
 
     if(avg>bestDayScore){
       bestDayScore=avg;
@@ -874,9 +1472,113 @@ function renderDecisionCenter(){
   </div>
   `;
 
-  /* ===== 3️⃣ 區域一週趨勢 ===== */
+/* ===== 未來三天最佳打球日 ===== */
+
+const best3=findBest3Days();
+
+html+=`
+<div class="card" style="margin-bottom:20px;">
+<div style="font-size:16px;font-weight:800;margin-bottom:8px;">
+📅 未來三天最佳打球日
+</div>
+`;
+
+best3.forEach((d,i)=>{
+
+ html+=`
+ <div class="rank-item">
+ ${i+1}. ${d.date}（${getWeekday(d.date)}）
+ <b style="color:${scoreColor(d.score)}">${d.score}</b>
+ </div>
+ `;
+
+});
+
+html+=`</div>`;
+
+
+/* ===== 全台 Top5 ===== */
+
+html+=`
+<div class="card" style="margin-bottom:20px;">
+<div style="font-size:16px;font-weight:800;margin-bottom:10px;">
+🏅 今日全台最佳球場 TOP5
+</div>
+`;
 
 const today=dates[0];
+
+/* ===== 今日最佳開球時段 ===== */
+
+let morningTotal=0;
+let afternoonTotal=0;
+let count=0;
+
+Object.keys(rankingData[today]).forEach(region=>{
+
+ morningTotal+=rankingData[today][region].avgMorning;
+ afternoonTotal+=rankingData[today][region].avgAfternoon;
+
+ count++;
+
+});
+
+const avgMorning = count ? Math.round(morningTotal/count) : 0;
+const avgAfternoon = count ? Math.round(afternoonTotal/count) : 0;
+
+let bestTime="🌅 早球";
+
+if(avgAfternoon>avgMorning){
+ bestTime="🌤 午球";
+}
+
+html+=`
+<div style="margin-bottom:20px;">
+<div style="font-size:16px;font-weight:800;margin-bottom:6px;">
+🎯 今日最佳開球時段
+</div>
+
+${bestTime}
+</div>
+`;
+
+if(rankingData.topCourses && rankingData.topCourses[today]){
+
+ const m=rankingData.topCourses[today].morning;
+ const a=rankingData.topCourses[today].afternoon;
+
+ html+=`<div style="font-size:14px;font-weight:700;margin-bottom:6px;">🌅 早球</div>`;
+
+ m.forEach((c,i)=>{
+  html+=`
+  <div class="rank-item">
+  ${i+1}. ${c.name} 
+<b style="color:${scoreColor(c.score)}">${c.score}</b>
+${c.warning?" ⚠":""}
+${(c.confidence>=85 && !c.warning)?" ⭐":""}
+  </div>`;
+ });
+
+ html+=`<div style="font-size:14px;font-weight:700;margin-top:10px;margin-bottom:6px;">🌤 午球</div>`;
+
+ a.forEach((c,i)=>{
+  html+=`
+  <div class="rank-item">
+  ${i+1}. ${c.name} 
+<b style="color:${scoreColor(c.score)}">${c.score}</b>
+${c.warning?" ⚠":""}
+${(c.confidence>=85 && !c.warning)?" ⭐":""}
+  </div>`;
+ });
+
+}
+
+html+=`</div>`;
+
+
+  /* ===== 3️⃣ 區域一週趨勢 ===== */
+
+const todayRegion=dates[0];
 
 html+=`
 <div class="card">
@@ -885,11 +1587,11 @@ html+=`
   </div>
 `;
 
-Object.keys(rankingData[today]).forEach(region=>{
+Object.keys(rankingData[todayRegion]).forEach(region=>{
 
   const todayAvg=Math.round(
-    (rankingData[today][region].avgMorning +
-     rankingData[today][region].avgAfternoon)/2
+    (rankingData[todayRegion][region].avgMorning +
+     rankingData[todayRegion][region].avgAfternoon)/2
   );
 
   html+=`
@@ -971,7 +1673,7 @@ async function loadAll(){
    while(queue.length){
 
     const c=queue.shift();
-    const data=await fetchWeather(c.lat,c.lon);
+    const data=await fetchWeather(c.lat,c.lon,c.address);
 
     if(data.hourly && data.hourly.time){
 
@@ -1020,39 +1722,80 @@ async function loadAll(){
       const popMorning=avg(morningIndex,"precipitation_probability");
       const rainMorning=avg(morningIndex,"precipitation");
       const tempMorning=avg(morningIndex,"apparent_temperature");
+      const dewMorning=avg(morningIndex,"dew_point");
+      const confidenceMorning=avg(morningIndex,"confidence");
+      const windMorning=avg(morningIndex,"windspeed_10m");
+      const warningMorning=
+ morningIndex.some(i=>data.hourly.model_warning[i]);
 
       const popAfternoon=avg(afternoonIndex,"precipitation_probability");
       const rainAfternoon=avg(afternoonIndex,"precipitation");
       const tempAfternoon=avg(afternoonIndex,"apparent_temperature");
+      const dewAfternoon=avg(afternoonIndex,"dew_point");
+      const confidenceAfternoon=avg(afternoonIndex,"confidence");
+      const windAfternoon=avg(afternoonIndex,"windspeed_10m");
+      const warningAfternoon=
+ afternoonIndex.some(i=>data.hourly.model_warning[i]);
 
       const morningScore=
-        calculateGCI(popMorning,rainMorning,tempMorning);
+calculateGCI(popMorning,rainMorning,tempMorning,dewMorning,windMorning);
 
-      const afternoonScore=
-        calculateGCI(popAfternoon,rainAfternoon,tempAfternoon);
+const afternoonScore=
+calculateGCI(popAfternoon,rainAfternoon,tempAfternoon,dewAfternoon,windAfternoon);
+
+/* ===== 雷暴風險判定 ===== */
+
+let thunderMorning="none";
+let thunderAfternoon="none";
+
+if(popMorning>=80 && rainMorning>=5){
+ thunderMorning="high";
+}else if(popMorning>=70 && rainMorning>=3){
+ thunderMorning="medium";
+}
+
+if(popAfternoon>=80 && rainAfternoon>=5){
+ thunderAfternoon="high";
+}else if(popAfternoon>=70 && rainAfternoon>=3){
+ thunderAfternoon="medium";
+}
 
       weatherCache[c.name].push({
-        date,
-        popMorning,
-        rainMorning,
-        tempMorning,
-        popAfternoon,
-        rainAfternoon,
-        tempAfternoon,
-        morningScore,
-        afternoonScore,
-        morning:gciLight(morningScore),
-        afternoon:gciLight(afternoonScore)
-      });
+ date,
 
+ popMorning,
+ rainMorning,
+ tempMorning,
+ dewMorning,
+ windMorning,
+ confidenceMorning,
+ warningMorning,
+
+ popAfternoon,
+ rainAfternoon,
+ tempAfternoon,
+ dewAfternoon,
+ windAfternoon,
+ confidenceAfternoon,
+ warningAfternoon,
+
+ thunderMorning,
+ thunderAfternoon,
+
+ morningScore,
+ afternoonScore,
+
+ morning:gciLight(morningScore),
+ afternoon:gciLight(afternoonScore)
+});
      }
 
     }
 
     fetchCount++;
 
-    // 每 3 筆才重繪一次，避免瘋狂刷新
-    if(fetchCount % 5 === 0){
+    // 每 8 筆才重繪一次，避免瘋狂刷新
+    if(fetchCount % 8 === 0)
       renderCourses();
     }
 
@@ -1094,7 +1837,10 @@ function toggleModelDetail(el){
   }
 }
 
-loadAll();
+(async()=>{
+ await loadCWA();
+ await loadAll();
+})();
 
 </script>
 </body>
