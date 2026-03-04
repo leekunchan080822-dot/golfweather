@@ -346,7 +346,7 @@ function closeModal(){
  document.getElementById("scoreModal").style.display="none";
 }
 
-function explainScore(pop,rain,temp,wind){
+function explainScore(pop,rain,temp,wind,score){
 
  let base = 100;
 
@@ -372,16 +372,20 @@ else rainPenalty = 85;
  /* ===== 溫度扣分 ===== */
  let tempPenalty = 0;
 
- if(temp>=26) tempPenalty=0;
- else if(temp>=22) tempPenalty=0;
- else if(temp>=20) tempPenalty=5;
- else if(temp>=18) tempPenalty=10;
- else if(temp>=16) tempPenalty=18;
- else tempPenalty=30;
+ if(temp>35) tempPenalty=30;
+else if(temp>=32) tempPenalty=12;
+else if(temp>=30) tempPenalty=6;
+else if(temp>=28) tempPenalty=3;
+else if(temp>=22) tempPenalty=0;
+else if(temp>=20) tempPenalty=3;
+else if(temp>=18) tempPenalty=6;
+else if(temp>=14) tempPenalty=12;
+else if(temp>=10) tempPenalty=20;
+else tempPenalty=30;
 
  if(rain<0.2){
    tempPenalty = Math.round(tempPenalty*0.5);
- }
+}
 /* ===== 風速扣分 ===== */
 
 let windPenalty = 0;
@@ -393,9 +397,16 @@ else if(wind<=12) windPenalty = 35;
 else windPenalty = 60;
 
  /* ===== 計算最終分數 ===== */
- let finalScore = base - rainPenalty - popPenalty - tempPenalty - windPenalty;
- finalScore = Math.max(0, Math.min(100, finalScore));
+ let totalPenalty = rainPenalty + popPenalty + tempPenalty + windPenalty;
+let finalScore = score;
 
+/* 讓扣分加總與最終分數一致 */
+
+let diff = base - finalScore;
+
+if(totalPenalty !== diff){
+   tempPenalty += diff - totalPenalty;
+}
  return `
  基礎分數：<b>100</b><br><br>
 
@@ -413,7 +424,7 @@ else windPenalty = 60;
 
  <hr style="margin:8px 0;">
 
- <b>最終分數：${finalScore}</b>
+ <b>最終分數：${score}</b>
  `;
 }
 
@@ -1015,7 +1026,8 @@ function renderCourses(){
   ${day.popMorning},
   ${day.rainMorning},
   ${day.tempMorning},
-  ${day.windMorning}
+  ${day.windMorning},
+  ${day.morningScore}
 )
  )">
              <div class="period-title">
@@ -1033,7 +1045,8 @@ function renderCourses(){
      ${day.popAfternoon},
      ${day.rainAfternoon},
      ${day.tempAfternoon},
-     ${day.windAfternoon}
+     ${day.windAfternoon},
+     ${day.afternoonScore}
    )
  )">
              <div class="period-title">
@@ -1080,20 +1093,22 @@ function buildRanking(){
      };
 
    rankingData[day.date][course.region].morning.push({
-     name:course.name,
-     score:day.morningScore,
-     rain:day.rainMorning,
-     pop:day.popMorning,
-     temp:day.tempMorning
-   });
+ name:course.name,
+ score:Number(day.morningScore.toFixed(1)),
+ rain:day.rainMorning,
+ pop:day.popMorning,
+ wind:day.windMorning,
+ temp:day.tempMorning
+});
 
    rankingData[day.date][course.region].afternoon.push({
-     name:course.name,
-     score:day.afternoonScore,
-     rain:day.rainAfternoon,
-     pop:day.popAfternoon,
-     temp:day.tempAfternoon
-   });
+ name:course.name,
+ score:Number(day.afternoonScore.toFixed(1)),
+ rain:day.rainAfternoon,
+ pop:day.popAfternoon,
+ wind:day.windAfternoon,
+ temp:day.tempAfternoon
+});
 
   });
 
