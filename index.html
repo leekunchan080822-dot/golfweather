@@ -19,7 +19,7 @@
 
 <link rel="canonical" href="https://leekunchan080822-dot.github.io/golfweather/">
 
-<title>全台灣高爾夫球場天氣 V8.8｜GCI 區域決策中心</title>
+<title>全台灣高爾夫球場天氣 V8.12｜GCI 區域決策中心</title>
 
 <style>
 body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f5f7fa;margin:0;padding:15px;}
@@ -197,8 +197,18 @@ h2{text-align:center;margin:10px 0 8px;}
 </div>
 
 <div class="header-info" id="dateInfo"></div>
-<div class="header-info">資料來源：Open-Meteo ECMWF｜GCI 真實高爾夫模型</div>
-<h2>全台灣高爾夫球場天氣</h2>
+<div class="header-info">資料來源：Open-Meteo ECMWF 及 中央氣象署（CWA）｜GCI 真實高爾夫模型</div>
+<h2 style="font-size:26px;margin-top:4px;">
+本週哪裡最適合打球？
+</h2>
+
+<div class="header-info">
+全台高爾夫球場天氣分析｜GCI 舒適指數
+</div>
+
+<div class="header-info">
+資料來源：Open-Meteo ECMWF 及 中央氣象署（CWA）
+</div>
 
 <div class="rule-box">
 
@@ -208,7 +218,7 @@ h2{text-align:center;margin:10px 0 8px;}
 
   <div style="margin-top:6px;font-size:13px;line-height:1.6;">
 
-  <b>非線性扣分：</b> 雨量 > 機率 > 溫度<br>
+  <b>非線性扣分：</b> 雨量 > 風速 > 機率 > 溫度<br>
 
   <b>擊球時段：</b>
   早球（08:00–12:00）｜
@@ -224,17 +234,71 @@ h2{text-align:center;margin:10px 0 8px;}
 </div>
 
 <div style="display:none;margin-top:8px;font-size:13px;line-height:1.6;color:#444;">
-  本指數（Golf Comfort Index, GCI）採用多因子非線性加權模型，
-  以降雨量、降雨機率與體感溫度為核心變數，
-  透過階梯式扣分機制模擬實際打球體驗影響程度，
-  並計算 0–100 綜合舒適分數。
 
-  <br><br>
+<b>Golf Comfort Index（GCI）模型說明</b><br>
 
-  天氣資料來源為 Open-Meteo ECMWF 數值預報模型，
-  使用逐小時預測資料，
-  並取各時段區間平均後計算指數，
-  以提高實際決策準確度。
+本指數（Golf Comfort Index, GCI）為專為高爾夫擊球情境設計的氣象舒適度評估模型，
+用於快速判斷各球場在特定時段的打球天氣條件。
+<b>GCI 指數為本系統自行研發之球場天氣評估模型。</b>
+
+<br><br>
+
+模型會綜合評估多項與擊球體驗高度相關的氣象因素，
+包含降雨量、風速、降雨機率與體感溫度，
+並透過多因子加權評估方式，
+將各項天氣條件轉換為 0–100 的綜合舒適指數，
+協助球友快速比較不同球場與不同時段的打球天氣品質。
+
+<br><br>
+
+在設計理念上，
+系統會優先考量對實際擊球影響較大的氣象因素，
+例如降雨與風勢，
+再綜合評估降雨機率與溫度舒適度，
+以模擬真實球場決策情境，
+讓指數結果更貼近實際打球體驗。
+
+<br><br>
+
+系統使用逐小時氣象預測資料，
+並依高爾夫常見開球時間分為兩個評估時段：
+
+<br>
+🌅 早球：08:00 – 12:00<br>
+🌤 午球：12:01 – 18:00
+
+<br>
+
+各時段天氣條件會先進行區間整合與評估，
+再計算對應的 GCI 舒適指數，
+以更貼近實際打球時間的天氣情況。
+
+<br><br>
+
+<b>天氣資料來源</b><br>
+
+本系統整合多來源氣象資料進行分析，
+主要包含：
+
+<br><br>
+
+<b>ECMWF 全球數值預報模型</b><br>
+透過 Open-Meteo 平台取得逐小時氣象預測資料，
+提供降雨、風速與溫度等關鍵氣象資訊。
+
+<br><br>
+
+<b>中央氣象署（CWA）開放資料</b><br>
+提供台灣本地區域氣象資訊，
+用於輔助判斷降雨風險與區域天氣特性，
+提升台灣地區預報判斷的可信度。
+
+<br><br>
+
+透過全球數值預報與本地氣象資料的整合，
+GCI 指數能更全面地反映台灣各地球場
+在實際擊球時段的天氣舒適程度。
+
 </div>
 
   <div style="margin-top:12px;font-size:13px;">
@@ -282,18 +346,19 @@ function closeModal(){
  document.getElementById("scoreModal").style.display="none";
 }
 
-function explainScore(pop,rain,temp){
+function explainScore(pop,rain,temp,wind){
 
  let base = 100;
 
  /* ===== 雨量扣分 ===== */
  let rainPenalty = 0;
 
- if(rain<=0.1) rainPenalty = 0;
- else if(rain<=0.5) rainPenalty = 8;
- else if(rain<=1) rainPenalty = 18;
- else if(rain<=2) rainPenalty = 35;
- else rainPenalty = 60;
+ if(rain<=0.05) rainPenalty = 0;
+else if(rain<=0.2) rainPenalty = 10;
+else if(rain<=0.5) rainPenalty = 25;
+else if(rain<=1) rainPenalty = 45;
+else if(rain<=2) rainPenalty = 65;
+else rainPenalty = 85;
 
  /* ===== 機率扣分 ===== */
  let popPenalty = 0;
@@ -308,7 +373,7 @@ function explainScore(pop,rain,temp){
  let tempPenalty = 0;
 
  if(temp>=26) tempPenalty=0;
- else if(temp>=22) tempPenalty=2;
+ else if(temp>=22) tempPenalty=0;
  else if(temp>=20) tempPenalty=5;
  else if(temp>=18) tempPenalty=10;
  else if(temp>=16) tempPenalty=18;
@@ -317,9 +382,18 @@ function explainScore(pop,rain,temp){
  if(rain<0.2){
    tempPenalty = Math.round(tempPenalty*0.5);
  }
+/* ===== 風速扣分 ===== */
+
+let windPenalty = 0;
+
+if(wind<=3) windPenalty = 0;
+else if(wind<=5) windPenalty = 5;
+else if(wind<=8) windPenalty = 15;
+else if(wind<=12) windPenalty = 35;
+else windPenalty = 60;
 
  /* ===== 計算最終分數 ===== */
- let finalScore = base - rainPenalty - popPenalty - tempPenalty;
+ let finalScore = base - rainPenalty - popPenalty - tempPenalty - windPenalty;
  finalScore = Math.max(0, Math.min(100, finalScore));
 
  return `
@@ -334,13 +408,16 @@ function explainScore(pop,rain,temp){
  體感溫度 ${temp}℃
  → <span style="color:#dc2626;">-${tempPenalty}</span><br>
 
+ 風速 ${wind} m/s
+ → <span style="color:#dc2626;">-${windPenalty}</span><br>
+
  <hr style="margin:8px 0;">
 
  <b>最終分數：${finalScore}</b>
  `;
 }
 
-const DECISION={default_show_days:2,max_concurrent_fetch:10};
+const DECISION={default_show_days:2,max_concurrent_fetch:3};
 
 document.getElementById("dateInfo").innerText=
 "資料更新時間："+new Date().toLocaleString();
@@ -355,8 +432,20 @@ let selectedRegion="全部";
 let weatherCache={};
 let rankingData={};
 
-let CWA_CACHE=null;
+let CWA_CACHE={};
+function extractDistrict(address){
 
+ const match = address.match(/(區|鄉|鎮|市)/);
+
+ if(!match) return null;
+
+ const index = address.indexOf(match[0]);
+
+ const district = address.substring(index-2,index+1);
+
+ return district;
+
+}
 function doSearch(){
  searchKeyword=document.getElementById("searchInput")
  .value.trim().toLowerCase();
@@ -389,31 +478,46 @@ document.getElementById("searchInput")
 
 function ensembleWeather(ecmwf,cwa){
 
-  if(!cwa) return ecmwf;
+ if(!cwa) return ecmwf;
 
-  return {
+ const pop =
+ Math.round(
+   ecmwf.pop*0.75 +
+   parseFloat(cwa.pop)*0.25
+ );
 
-    pop:
-    Math.round((ecmwf.pop + cwa.pop)/2),
+ let rain = ecmwf.rain;
 
-    rain:
-    Math.max(ecmwf.rain , cwa.rain),
+ let risk = 0;
 
-    temp:
-    Math.round((ecmwf.temp + cwa.temp)/2)
+ if(cwa.weather){
 
-  };
+   if(cwa.weather.includes("雷")) risk=0.6;
+   else if(cwa.weather.includes("大雨")) risk=0.5;
+   else if(cwa.weather.includes("雨")) risk=0.3;
+
+ }
+
+ rain = rain + (risk * 0.3);
+
+ const temp =
+ Math.round(
+   (parseFloat(ecmwf.temp) + parseFloat(cwa.temp)) / 2
+ );
+
+ return {pop,rain,temp};
 
 }
 
-function calculateGCI(pop,rain,temp){
+function calculateGCI(pop,rain,temp,wind){
  let score=100;
 
- if(rain<=0.1) score-=0;
- else if(rain<=0.5) score-=8;
- else if(rain<=1) score-=18;
- else if(rain<=2) score-=35;
- else score-=60;
+ if(rain<=0.05) score-=0;
+else if(rain<=0.2) score-=10;
+else if(rain<=0.5) score-=25;
+else if(rain<=1) score-=45;
+else if(rain<=2) score-=65;
+else score-=85;
 
  if(pop<=20) score-=0;
  else if(pop<=40) score-=5;
@@ -423,16 +527,38 @@ function calculateGCI(pop,rain,temp){
 
  let tempPenalty=0;
 
- if(temp>=26) tempPenalty=0;
- else if(temp>=22) tempPenalty=2;
- else if(temp>=20) tempPenalty=5;
- else if(temp>=18) tempPenalty=10;
- else if(temp>=16) tempPenalty=18;
- else tempPenalty=30;
+if(temp>35) tempPenalty=30;
+else if(temp>=32) tempPenalty=12;
+else if(temp>=30) tempPenalty=6;
+else if(temp>=28) tempPenalty=3;
+else if(temp>=22) tempPenalty=0;
+else if(temp>=20) tempPenalty=3;
+else if(temp>=18) tempPenalty=6;
+else if(temp>=14) tempPenalty=12;
+else if(temp>=10) tempPenalty=20;
+else tempPenalty=30;
+
+/* 風速扣分 */
+
+let windPenalty=0;
+
+if(wind<=3) windPenalty=0;
+else if(wind<=5) windPenalty=5;
+else if(wind<=8) windPenalty=15;
+else if(wind<=12) windPenalty=35;
+else windPenalty=60;
+
+score-=windPenalty;
 
  if(rain<0.2) tempPenalty*=0.5;
 
  score-=tempPenalty;
+
+/* 雨量 + 高機率 組合懲罰 */
+
+if(rain > 0.2 && pop > 60){
+  score -= 10;
+}
 
  return Math.max(0,Math.min(100,Math.round(score)));
 }
@@ -504,110 +630,281 @@ function navigateTo(lat,lon){
 
 /* ===== API ===== */
 
-/* ===== CWA API ===== */
+/* ===== 即時雷達降雨（CWA） ===== */
 
-async function fetchCWA(){
+async function fetchRadar(lat,lon){
 
-  if(CWA_CACHE) return CWA_CACHE;
+ try{
 
-  try{
+  const url =
+  "https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0059-001?Authorization=CWA-60E4630E-A677-453A-BD76-C74F148C86ED";
 
-    const url =
-    "https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-D0047-091?Authorization=CWA-60E4630E-A677-453A-BD76-C74F148C86ED";
+  const res = await fetch(url);
+  const data = await res.json();
 
-    const res = await fetch(url);
-    await res.json(); // 先不解析資料
+  const stations = data.records.Station;
 
-    CWA_CACHE = {
-      pop:60,
-      rain:0.3,
-      temp:25
-    };
+  let nearest=null;
+  let minDist=999999;
 
-    return CWA_CACHE;
+  stations.forEach(s=>{
 
-  }catch(e){
+    const slat=parseFloat(s.GeoInfo.Coordinates[1].StationLatitude);
+    const slon=parseFloat(s.GeoInfo.Coordinates[1].StationLongitude);
 
-    console.log("CWA error",e);
+    const d =
+      Math.pow(slat-lat,2) +
+      Math.pow(slon-lon,2);
 
-    CWA_CACHE = {
-      pop:60,
-      rain:0.3,
-      temp:25
-    };
+    if(d<minDist){
+      minDist=d;
+      nearest=s;
+    }
 
-    return CWA_CACHE;
+  });
 
-  }
+  if(!nearest) return 0;
+
+  const dbz =
+    parseFloat(nearest.RadarData?.Reflectivity ?? 0);
+
+  /* dBZ → mm/h 粗略轉換 */
+
+  const rain =
+    Math.max(0,(dbz-10)*0.5);
+
+  return rain;
+
+ }catch(e){
+
+  console.log("RADAR ERROR",e);
+  return 0;
+
+ }
 
 }
 
-async function fetchWeather(lat,lon){
+/* ===== CWA 雨量站 ===== */
+
+async function fetchRainStation(lat,lon){
+
  try{
-  const url=
-  `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=precipitation,precipitation_probability,apparent_temperature&timezone=Asia%2FTaipei&forecast_days=7`;
-  const res=await fetch(url);
-  return await res.json();
+
+  const url =
+  "https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0002-001?Authorization=CWA-60E4630E-A677-453A-BD76-C74F148C86ED";
+
+  const res = await fetch(url);
+  const data = await res.json();
+
+  const stations = data.records.Station;
+
+  let nearest=null;
+  let minDist=999999;
+
+  stations.forEach(s=>{
+
+    const slat=parseFloat(s.GeoInfo.Coordinates[1].StationLatitude);
+    const slon=parseFloat(s.GeoInfo.Coordinates[1].StationLongitude);
+
+    const d =
+      Math.pow(slat-lat,2) +
+      Math.pow(slon-lon,2);
+
+    if(d<minDist){
+      minDist=d;
+      nearest=s;
+    }
+
+  });
+
+  if(!nearest) return 0;
+
+  const rain =
+  parseFloat(nearest.RainfallElement?.Now?.Precipitation ?? 0);
+
+  return rain;
+
  }catch(e){
-  console.error("API錯誤",e);
-  return {};
+
+  console.log("RAIN STATION ERROR",e);
+  return 0;
+
  }
+
+}
+/* ===== CWA API ===== */
+
+async function getCwaWeather(city){
+
+  const cacheKey = city;
+
+  if(CWA_CACHE[cacheKey]){
+    return CWA_CACHE[cacheKey];
+  }
+
+  const url =
+`https://corsproxy.io/?https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-D0047-091?Authorization=CWA-60E4630E-A677-453A-BD76-C74F148C86ED&countyName=${city.replace("臺","台")}`;
+
+  const res = await fetch(url);
+  const data = await res.json();
+
+  const locations =
+    data?.records?.Locations?.[0]?.Location || [];
+
+  let location = locations.find(l =>
+  l.LocationName.includes(city.replace("市","").replace("縣",""))
+);
+
+if(!location){
+  location = locations[0];
+}
+
+  if(!location){
+    console.log("CWA no location",city);
+    return null;
+  }
+
+  let pop = null;
+  let temp = null;
+  let weather = null;
+
+  location.WeatherElement.forEach(el=>{
+
+    if(el.ElementName==="12小時降雨機率"){
+      pop = el.Time?.[0]?.ElementValue?.[0]?.ProbabilityOfPrecipitation;
+    }
+
+    if(el.ElementName==="平均溫度"){
+      temp = el.Time?.[0]?.ElementValue?.[0]?.Temperature;
+    }
+
+    if(el.ElementName==="天氣現象"){
+      weather = el.Time?.[0]?.ElementValue?.[0]?.Weather;
+    }
+
+  });
+
+  const result = {
+    pop: pop,
+    temp: temp,
+    weather: weather
+  };
+
+  CWA_CACHE[cacheKey] = result;
+
+  console.log("CWA OK:",city,result);
+
+  return result;
+
+}
+/* ===== ECMWF API ===== */
+
+async function fetchWeather(lat,lon){
+
+ try{
+
+  const url =
+  `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=precipitation,precipitation_probability,apparent_temperature,windspeed_10m&timezone=Asia%2FTaipei&forecast_days=5`;
+
+  const res = await fetch(url);
+
+  return await res.json();
+
+ }catch(e){
+
+  console.error("API錯誤",e);
+
+  return {};
+
+ }
+
 }
 
 /* ===== courses 陣列（完整保留） ===== */
 
 const courses=[
 
-{region:"台北市 / 新北市",name:"翡翠高爾夫球場",address:"207新北市萬里區仁七街16之1號",lat:25.18027216415407,lon:121.67420735004629},
-{region:"台北市 / 新北市",name:"黃金海岸（北海）高爾夫球場",address:"253新北市石門區草埔尾5號",lat:25.276706815057427,lon:121.60222160777458},
-{region:"台北市 / 新北市",name:"濱海高爾夫俱樂部",address:"253新北市石門區尖子鹿路10號",lat:25.281940395722213,lon:121.5771599948467},
-{region:"台北市 / 新北市",name:"台灣（老淡水）高爾夫球場",address:"251新北市淡水區中正路一段6巷32號",lat:25.17938481857673,lon:121.43074463347315},
-{region:"台北市 / 新北市",name:"大屯高爾夫球場",address:"251新北市淡水區商工路309號",lat:25.18704102699374,lon:121.45909155436449},
-{region:"台北市 / 新北市",name:"揮皇（新淡水）高爾夫球場",address:"251新北市淡水區八勢路300號",lat:25.150194276900837,lon:121.46846223347222},
-{region:"台北市 / 新北市",name:"林口高爾夫球場",address:"244新北市林口區後湖50-1號",lat:25.109178192312722,lon:121.38565287579956},
-{region:"台北市 / 新北市",name:"八里國際高爾夫球場",address:"244新北市林口區寶斗厝坑91號",lat:25.11570855247773,lon:121.32547391203332},
-{region:"台北市 / 新北市",name:"美麗華高爾夫球場",address:"244新北市林口區大水湳路99號",lat:25.10006763893975,lon:121.31541823347072},
-{region:"台北市 / 新北市",name:"幸福高爾夫球場",address:"244新北市林口區71之2號",lat:25.106999338374667,lon:121.30559540655749},
-{region:"台北市 / 新北市",name:"東華高爾夫球場",address:"244新北市林口區東華路99號",lat:25.1099620087812,lon:121.29105342587928},
+{region:"台北市 / 新北市",name:"翡翠高爾夫球場",city:"新北市",district:"萬里區",address:"207新北市萬里區仁七街16之1號",lat:25.18027216415407,lon:121.67420735004629},
 
-{region:"桃園",name:"台北高爾夫球場",address:"338桃園市蘆竹區寶順街800號",lat:25.060608376667933,lon:121.32668811663667},
-{region:"桃園",name:"統帥高爾夫球場",address:"338桃園市蘆竹區六福一路195巷8號",lat:25.06464462099718,lon:121.30694376637834},
-{region:"桃園",name:"長庚高爾夫球場",address:"333桃園市龜山區長庚球場路66號",lat:25.026727808853103,lon:121.3827750473207},
-{region:"桃園",name:"東方高爾夫球場",address:"333桃園市龜山區東方球場路100號",lat:25.006343716381842,lon:121.36411801109111},
-{region:"桃園",name:"第一高爾夫球場",address:"338桃園市蘆竹區赤塗路80號",lat:25.075702599789707,lon:121.33059209759762},
-{region:"桃園",name:"永漢高爾夫球場",address:"338桃園市蘆竹區南山北路一段300號",lat:25.098312785119244,lon:121.28664876451126},
-{region:"桃園",name:"桃園高爾夫球場",address:"325桃園市龍潭區悅華路100號",lat:24.869940017193212,lon:121.24876196451122},
-{region:"桃園",name:"大溪高爾夫球場",address:"335桃園市大溪區日新路168號",lat:24.880824895649777,lon:121.32805367985323},
-{region:"桃園",name:"龍潭高爾夫球場",address:"325桃園市龍潭區民生路439巷130號",lat:24.844171454557483,lon:121.2221166319787},
-{region:"桃園",name:"揚昇高爾夫鄉村俱樂部",address:"32652桃園市楊梅區楊昇路256號",lat:24.880567327458493,lon:121.15708008465798},
+{region:"台北市 / 新北市",name:"黃金海岸（北海）高爾夫球場",city:"新北市",district:"石門區",address:"253新北市石門區草埔尾5號",lat:25.276706815057427,lon:121.60222160777458},
 
-{region:"花東",name:"礁溪高爾夫球場",address:"262宜蘭縣礁溪鄉林尾路156號",lat:24.825152536234288,lon:121.73993434177513},
-{region:"花東",name:"花蓮高爾夫球場",address:"970花蓮縣花蓮市化道路120號",lat:23.997956028847813,lon:121.62714717061067},
+{region:"台北市 / 新北市",name:"濱海高爾夫俱樂部",city:"新北市",district:"石門區",address:"253新北市石門區尖子鹿路10號",lat:25.281940395722213,lon:121.5771599948467},
 
-{region:"新竹 / 苗栗",name:"再興高爾夫球場",address:"303新竹縣湖口鄉再興路350號",lat:24.883657556441133,lon:121.08730842643314},
-{region:"新竹 / 苗栗",name:"新竹（新豐）高爾夫球場",address:"304新竹縣新豐鄉坑子口104號",lat:24.879097297250286,lon:120.98179856081418},
-{region:"新竹 / 苗栗",name:"立益高爾夫球場",address:"306新竹縣關西鎮55號",lat:24.78339243271613,lon:121.19580921109112},
-{region:"新竹 / 苗栗",name:"旭陽高爾夫球場",address:"306新竹縣關西鎮新城段100號",lat:24.747698970141233,lon:121.18413445896569},
-{region:"新竹 / 苗栗",name:"老爺關西高爾夫球場",address:"306新竹縣關西鎮1號",lat:24.752434290148916,lon:121.19837330868874},
-{region:"新竹 / 苗栗",name:"山溪地高爾夫球場",address:"306新竹縣關西鎮玉山里2鄰13號",lat:24.76248331989338,lon:121.21359116081418},
-{region:"新竹 / 苗栗",name:"寶山高爾夫球場",address:"308新竹縣寶山鄉寶新路二段465號",lat:24.733997713268437,lon:120.97071279334672},
-{region:"新竹 / 苗栗",name:"皇家高爾夫球場",address:"362苗栗縣頭屋鄉明德村1鄰20號",lat:24.595833907545767,lon:120.92375095711715},
-{region:"新竹 / 苗栗",name:"全國高爾夫球場",address:"苗栗縣苑裡鎮3581鄰1之1號",lat:24.39383419226723,lon:120.72033232872194},
+{region:"台北市 / 新北市",name:"台灣（老淡水）高爾夫球場",city:"新北市",district:"淡水區",address:"251新北市淡水區中正路一段6巷32號",lat:25.17938481857673,lon:121.43074463347315},
 
-{region:"台中 / 彰化 / 南投",name:"清泉崗高爾夫球場",address:"436臺中市清水區和睦路二段305號",lat:24.287288264950387,lon:120.6223136184852},
-{region:"台中 / 彰化 / 南投",name:"豐原高爾夫球場",address:"420臺中市豐原區水源路坪頂巷23號",lat:24.265276957582376,lon:120.75712932587926},
-{region:"台中 / 彰化 / 南投",name:"台中國際高爾夫球場",address:"406臺中市北屯區北坑巷21之8號",lat:24.163215931620407,lon:120.7593796393728},
-{region:"台中 / 彰化 / 南投",name:"霧峰高爾夫球場",address:"413臺中市霧峰區峰谷路668號",lat:24.0344067786072,lon:120.74880630684022},
+{region:"台北市 / 新北市",name:"大屯高爾夫球場",city:"新北市",district:"淡水區",address:"251新北市淡水區商工路309號",lat:25.18704102699374,lon:121.45909155436449},
 
-{region:"嘉義 / 台南 / 高雄 / 屏東",name:"棕梠湖（東洋）高爾夫球場",address:"602嘉義縣番路鄉第三農場24號",lat:23.4680352275906,lon:120.53389917985322},
-{region:"嘉義 / 台南 / 高雄 / 屏東",name:"斑芝花高爾夫俱樂部",address:"733臺南市東山區斑芝花坑39號",lat:23.286747396981596,lon:120.45025227245918},
-{region:"嘉義 / 台南 / 高雄 / 屏東",name:"台南高爾夫球場",address:"712臺南市新化區100號",lat:23.03676875828575,lon:120.34153678410414},
-{region:"嘉義 / 台南 / 高雄 / 屏東",name:"南一高爾夫球場",address:"718臺南市關廟區長榮街500號",lat:22.91254164680255,lon:120.33070584916922},
-{region:"嘉義 / 台南 / 高雄 / 屏東",name:"南寶高爾夫球場",address:"742臺南市大內區頭社里136號",lat:23.15190256089102,lon:120.37438901848519},
-{region:"嘉義 / 台南 / 高雄 / 屏東",name:"大崗山高爾夫球場",address:"823高雄市田寮區長山路1號",lat:22.892773708039066,lon:120.37238559519527},
-{region:"嘉義 / 台南 / 高雄 / 屏東",name:"信誼高爾夫球場",address:"840高雄市大樹區信誼路1號",lat:22.76590528794321,lon:120.41969162828167},
-{region:"嘉義 / 台南 / 高雄 / 屏東",name:"觀音山高爾夫球場",address:"840高雄市大樹區三和路140號",lat:22.73645592206508,lon:120.40324250684023},
-{region:"嘉義 / 台南 / 高雄 / 屏東",name:"山湖觀高爾夫球場",address:"906屏東縣高樹鄉中正路190號",lat:22.731170728184388,lon:120.63193848780116}
+{region:"台北市 / 新北市",name:"揮皇（新淡水）高爾夫球場",city:"新北市",district:"淡水區",address:"251新北市淡水區八勢路300號",lat:25.150194276900837,lon:121.46846223347222},
+
+{region:"台北市 / 新北市",name:"林口高爾夫球場",city:"新北市",district:"林口區",address:"244新北市林口區後湖50-1號",lat:25.109178192312722,lon:121.38565287579956},
+
+{region:"台北市 / 新北市",name:"八里國際高爾夫球場",city:"新北市",district:"林口區",address:"244新北市林口區寶斗厝坑91號",lat:25.11570855247773,lon:121.32547391203332},
+
+{region:"台北市 / 新北市",name:"美麗華高爾夫球場",city:"新北市",district:"林口區",address:"244新北市林口區大水湳路99號",lat:25.10006763893975,lon:121.31541823347072},
+
+{region:"台北市 / 新北市",name:"幸福高爾夫球場",city:"新北市",district:"林口區",address:"244新北市林口區71之2號",lat:25.106999338374667,lon:121.30559540655749},
+
+{region:"台北市 / 新北市",name:"東華高爾夫球場",city:"新北市",district:"林口區",address:"244新北市林口區東華路99號",lat:25.1099620087812,lon:121.29105342587928},
+
+{region:"桃園",name:"台北高爾夫球場",city:"桃園市",district:"蘆竹區",address:"338桃園市蘆竹區寶順街800號",lat:25.060608376667933,lon:121.32668811663667},
+
+{region:"桃園",name:"統帥高爾夫球場",city:"桃園市",district:"蘆竹區",address:"338桃園市蘆竹區六福一路195巷8號",lat:25.06464462099718,lon:121.30694376637834},
+
+{region:"桃園",name:"長庚高爾夫球場",city:"桃園市",district:"龜山區",address:"333桃園市龜山區長庚球場路66號",lat:25.026727808853103,lon:121.3827750473207},
+
+{region:"桃園",name:"東方高爾夫球場",city:"桃園市",district:"龜山區",address:"333桃園市龜山區東方球場路100號",lat:25.006343716381842,lon:121.36411801109111},
+
+{region:"桃園",name:"第一高爾夫球場",city:"桃園市",district:"蘆竹區",address:"338桃園市蘆竹區赤塗路80號",lat:25.075702599789707,lon:121.33059209759762},
+
+{region:"桃園",name:"永漢高爾夫球場",city:"桃園市",district:"蘆竹區",address:"338桃園市蘆竹區南山北路一段300號",lat:25.098312785119244,lon:121.28664876451126},
+
+{region:"桃園",name:"桃園高爾夫球場",city:"桃園市",district:"龍潭區",address:"325桃園市龍潭區悅華路100號",lat:24.869940017193212,lon:121.24876196451122},
+
+{region:"桃園",name:"大溪高爾夫球場",city:"桃園市",district:"大溪區",address:"335桃園市大溪區日新路168號",lat:24.880824895649777,lon:121.32805367985323},
+
+{region:"桃園",name:"龍潭高爾夫球場",city:"桃園市",district:"龍潭區",address:"325桃園市龍潭區民生路439巷130號",lat:24.844171454557483,lon:121.2221166319787},
+
+{region:"桃園",name:"揚昇高爾夫鄉村俱樂部",city:"桃園市",district:"楊梅區",address:"32652桃園市楊梅區楊昇路256號",lat:24.880567327458493,lon:121.15708008465798},
+
+{region:"花東",name:"礁溪高爾夫球場",city:"宜蘭縣",district:"礁溪鄉",address:"262宜蘭縣礁溪鄉林尾路156號",lat:24.825152536234288,lon:121.73993434177513},
+
+{region:"花東",name:"花蓮高爾夫球場",city:"花蓮縣",district:"花蓮市",address:"970花蓮縣花蓮市化道路120號",lat:23.997956028847813,lon:121.62714717061067},
+
+{region:"新竹 / 苗栗",name:"再興高爾夫球場",city:"新竹縣",district:"湖口鄉",address:"303新竹縣湖口鄉再興路350號",lat:24.883657556441133,lon:121.08730842643314},
+
+{region:"新竹 / 苗栗",name:"新竹（新豐）高爾夫球場",city:"新竹縣",district:"新豐鄉",address:"304新竹縣新豐鄉坑子口104號",lat:24.879097297250286,lon:120.98179856081418},
+
+{region:"新竹 / 苗栗",name:"立益高爾夫球場",city:"新竹縣",district:"關西鎮",address:"306新竹縣關西鎮55號",lat:24.78339243271613,lon:121.19580921109112},
+
+{region:"新竹 / 苗栗",name:"旭陽高爾夫球場",city:"新竹縣",district:"關西鎮",address:"306新竹縣關西鎮新城段100號",lat:24.747698970141233,lon:121.18413445896569},
+
+{region:"新竹 / 苗栗",name:"老爺關西高爾夫球場",city:"新竹縣",district:"關西鎮",address:"306新竹縣關西鎮1號",lat:24.752434290148916,lon:121.19837330868874},
+
+{region:"新竹 / 苗栗",name:"山溪地高爾夫球場",city:"新竹縣",district:"關西鎮",address:"306新竹縣關西鎮玉山里2鄰13號",lat:24.76248331989338,lon:121.21359116081418},
+
+{region:"新竹 / 苗栗",name:"寶山高爾夫球場",city:"新竹縣",district:"寶山鄉",address:"308新竹縣寶山鄉寶新路二段465號",lat:24.733997713268437,lon:120.97071279334672},
+
+{region:"新竹 / 苗栗",name:"皇家高爾夫球場",city:"苗栗縣",district:"頭屋鄉",address:"362苗栗縣頭屋鄉明德村1鄰20號",lat:24.595833907545767,lon:120.92375095711715},
+
+{region:"新竹 / 苗栗",name:"全國高爾夫球場",city:"苗栗縣",district:"苑裡鎮",address:"苗栗縣苑裡鎮3581鄰1之1號",lat:24.39383419226723,lon:120.72033232872194},
+
+{region:"嘉義 / 台南 / 高雄 / 屏東",name:"棕梠湖（東洋）高爾夫球場",city:"嘉義縣",district:"番路鄉",address:"602嘉義縣番路鄉第三農場24號",lat:23.4680352275906,lon:120.53389917985322},
+
+{region:"嘉義 / 台南 / 高雄 / 屏東",name:"斑芝花高爾夫俱樂部",city:"臺南市",district:"東山區",address:"733臺南市東山區斑芝花坑39號",lat:23.286747396981596,lon:120.45025227245918},
+
+{region:"嘉義 / 台南 / 高雄 / 屏東",name:"台南高爾夫球場",city:"臺南市",district:"新化區",address:"712臺南市新化區100號",lat:23.03676875828575,lon:120.34153678410414},
+
+{region:"嘉義 / 台南 / 高雄 / 屏東",name:"南一高爾夫球場",city:"臺南市",district:"關廟區",address:"718臺南市關廟區長榮街500號",lat:22.91254164680255,lon:120.33070584916922},
+
+{region:"嘉義 / 台南 / 高雄 / 屏東",name:"南寶高爾夫球場",city:"臺南市",district:"大內區",address:"742臺南市大內區頭社里136號",lat:23.15190256089102,lon:120.37438901848519},
+
+{region:"嘉義 / 台南 / 高雄 / 屏東",name:"大崗山高爾夫球場",city:"高雄市",district:"田寮區",address:"823高雄市田寮區長山路1號",lat:22.892773708039066,lon:120.37238559519527},
+
+{region:"嘉義 / 台南 / 高雄 / 屏東",name:"信誼高爾夫球場",city:"高雄市",district:"大樹區",address:"840高雄市大樹區信誼路1號",lat:22.76590528794321,lon:120.41969162828167},
+
+{region:"嘉義 / 台南 / 高雄 / 屏東",name:"觀音山高爾夫球場",city:"高雄市",district:"大樹區",address:"840高雄市大樹區三和路140號",lat:22.73645592206508,lon:120.40324250684023},
+
+{region:"嘉義 / 台南 / 高雄 / 屏東",name:"山湖觀高爾夫球場",city:"屏東縣",district:"高樹鄉",address:"906屏東縣高樹鄉中正路190號",lat:22.731170728184388,lon:120.63193848780116}
 
 ];
 
@@ -715,29 +1012,18 @@ function renderCourses(){
            <div class="period ${day.morning.cls}"
  onclick="openModal(
    explainScore(
-     ${day.popMorning},
-     ${day.rainMorning},
-     ${day.tempMorning}
-   )
+  ${day.popMorning},
+  ${day.rainMorning},
+  ${day.tempMorning},
+  ${day.windMorning}
+)
  )">
              <div class="period-title">
                🌅 早球 ${day.morning.icon} ${day.morningScore}
              </div>
              雨量 ${day.rainMorning}mm<br>
              機率 ${day.popMorning}%<br>
-<div style="
-  height:6px;
-  background:#e5e7eb;
-  border-radius:6px;
-  overflow:hidden;
-  margin:4px 0 6px 0;
-">
-  <div style="
-    width:${day.popMorning}%;
-    height:100%;
-    background:#3b82f6;
-  "></div>
-</div>
+             風速 ${day.windMorning} m/s<br>
              體感 ${day.tempMorning}℃
            </div>
 
@@ -746,7 +1032,8 @@ function renderCourses(){
    explainScore(
      ${day.popAfternoon},
      ${day.rainAfternoon},
-     ${day.tempAfternoon}
+     ${day.tempAfternoon},
+     ${day.windAfternoon}
    )
  )">
              <div class="period-title">
@@ -754,19 +1041,7 @@ function renderCourses(){
              </div>
              雨量 ${day.rainAfternoon}mm<br>
              機率 ${day.popAfternoon}%<br>
-<div style="
-  height:6px;
-  background:#e5e7eb;
-  border-radius:6px;
-  overflow:hidden;
-  margin:4px 0 6px 0;
-">
-  <div style="
-    width:${day.popAfternoon}%;
-    height:100%;
-    background:#3b82f6;
-  "></div>
-</div>
+             風速 ${day.windAfternoon} m/s<br>
              體感 ${day.tempAfternoon}℃
            </div>
 
@@ -1030,7 +1305,14 @@ async function loadAll(){
    while(queue.length){
 
     const c=queue.shift();
-    const data=await fetchWeather(c.lat,c.lon);
+    let data;
+
+try{
+  data = await fetchWeather(c.lat,c.lon);
+}catch(e){
+  console.log("OpenMeteo error",e);
+  data = {};
+}
 
     if(data.hourly && data.hourly.time){
 
@@ -1041,19 +1323,26 @@ async function loadAll(){
          data.hourly.time.map(t=>t.substring(0,10))
        )
      ];
-
+     const cwa = await getCwaWeather(c.city);
+     console.log("使用 CWA 修正:",c.name,cwa);
+     const radarRain = 0;
+     const stationRain = await fetchRainStation(c.lat,c.lon);
      for(let d=0;d<dates.length;d++){
 
       const date=dates[d];
 
       const avg=(arr,key)=>{
-        if(!arr.length || !data.hourly[key]) return 0;
-        return Math.round(
-          arr.reduce((s,i)=>{
-            return s + (data.hourly[key][i] || 0);
-          },0)/arr.length
-        );
-      };
+
+  if(!arr.length || !data.hourly[key]) return 0;
+
+  const value =
+    arr.reduce((s,i)=>{
+      return s + (data.hourly[key][i] || 0);
+    },0)/arr.length;
+
+  return Math.round(value * 100) / 100;
+
+};
 
       const morningIndex=
         data.hourly.time
@@ -1077,16 +1366,30 @@ async function loadAll(){
       }
 
       const popMorning=avg(morningIndex,"precipitation_probability");
-      const rainMorning=avg(morningIndex,"precipitation");
-      const tempMorning=avg(morningIndex,"apparent_temperature");
+let rainMorning=avg(morningIndex,"precipitation");
 
-      const popAfternoon=avg(afternoonIndex,"precipitation_probability");
-      const rainAfternoon=avg(afternoonIndex,"precipitation");
-      const tempAfternoon=avg(afternoonIndex,"apparent_temperature");
+const today = new Date().toISOString().slice(0,10);
+
+if(date===today){
+
+  if(stationRain>rainMorning) rainMorning=stationRain;
+
+}
+const tempMorning=avg(morningIndex,"apparent_temperature");
+const windMorning=Math.round(avg(morningIndex,"windspeed_10m") * 0.75 * 100) / 100;
+
+const popAfternoon=avg(afternoonIndex,"precipitation_probability");
+let rainAfternoon=avg(afternoonIndex,"precipitation");
+
+if(date===today){
+
+  if(stationRain>rainAfternoon) rainAfternoon=stationRain;
+
+}
+const tempAfternoon=avg(afternoonIndex,"apparent_temperature");
+const windAfternoon=Math.round(avg(afternoonIndex,"windspeed_10m") * 0.75 * 100) / 100;
 
 /* ===== 雙模型 Ensemble ===== */
-
-const cwa = await fetchCWA();
 
 const morningMerged =
 ensembleWeather(
@@ -1101,27 +1404,30 @@ ensembleWeather(
 );
 
 const finalPopMorning = morningMerged.pop;
-const finalRainMorning = morningMerged.rain;
+const finalRainMorning = Math.round(morningMerged.rain * 100) / 100;
 const finalTempMorning = morningMerged.temp;
 
 const finalPopAfternoon = afternoonMerged.pop;
-const finalRainAfternoon = afternoonMerged.rain;
+const finalRainAfternoon = Math.round(afternoonMerged.rain * 100) / 100;
 const finalTempAfternoon = afternoonMerged.temp;
 
       const morningScore =
-  calculateGCI(finalPopMorning,finalRainMorning,finalTempMorning);
+calculateGCI(finalPopMorning,finalRainMorning,finalTempMorning,windMorning);
 
 const afternoonScore =
-  calculateGCI(finalPopAfternoon,finalRainAfternoon,finalTempAfternoon);
+calculateGCI(finalPopAfternoon,finalRainAfternoon,finalTempAfternoon,windAfternoon);
 
       weatherCache[c.name].push({
   date,
   popMorning:finalPopMorning,
   rainMorning:finalRainMorning,
   tempMorning:finalTempMorning,
+  windMorning,
+
   popAfternoon:finalPopAfternoon,
   rainAfternoon:finalRainAfternoon,
   tempAfternoon:finalTempAfternoon,
+  windAfternoon,
         morningScore,
         afternoonScore,
         morning:gciLight(morningScore),
@@ -1134,8 +1440,8 @@ const afternoonScore =
 
     fetchCount++;
 
-    // 每 3 筆才重繪一次，避免瘋狂刷新
-    if(fetchCount % 5 === 0){
+    // 每 2 筆才重繪一次，避免瘋狂刷新
+    if(fetchCount % 2 === 0){
       renderCourses();
     }
 
