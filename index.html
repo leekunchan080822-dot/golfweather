@@ -553,11 +553,12 @@ else tempPenalty=30;
 
 let windPenalty=0;
 
-if(wind<=3) windPenalty=0;
-else if(wind<=5) windPenalty=5;
-else if(wind<=8) windPenalty=15;
-else if(wind<=12) windPenalty=35;
-else windPenalty=60;
+if(wind<=4) windPenalty=0;
+else if(wind<=6) windPenalty=3;
+else if(wind<=8) windPenalty=8;
+else if(wind<=10) windPenalty=18;
+else if(wind<=12) windPenalty=30;
+else windPenalty=45;
 
 score-=windPenalty;
 
@@ -815,7 +816,7 @@ async function fetchWeather(lat,lon){
  try{
 
   const url =
-  `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=precipitation,precipitation_probability,apparent_temperature,windspeed_10m&timezone=Asia%2FTaipei&forecast_days=5`;
+`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=precipitation,precipitation_probability,apparent_temperature,windspeed_10m,windgusts_10m&timezone=Asia%2FTaipei&forecast_days=5`;
 
   const res = await fetch(url);
 
@@ -1391,7 +1392,11 @@ if(date===today){
 
 }
 const tempMorning=avg(morningIndex,"apparent_temperature");
-const windMorning=Math.round(avg(morningIndex,"windspeed_10m") * 0.75 * 100) / 100;
+const windspeed = avg(morningIndex,"windspeed_10m");
+const gust = avg(morningIndex,"windgusts_10m");
+
+const windMorning =
+Math.round(((windspeed*0.7 + gust*0.3)/3.6 * 0.85) * 100) / 100;
 
 const popAfternoon=avg(afternoonIndex,"precipitation_probability");
 let rainAfternoon=avg(afternoonIndex,"precipitation");
@@ -1402,7 +1407,11 @@ if(date===today){
 
 }
 const tempAfternoon=avg(afternoonIndex,"apparent_temperature");
-const windAfternoon=Math.round(avg(afternoonIndex,"windspeed_10m") * 0.75 * 100) / 100;
+const windspeedA = avg(afternoonIndex,"windspeed_10m");
+const gustA = avg(afternoonIndex,"windgusts_10m");
+
+const windAfternoon =
+Math.round(((windspeedA*0.7 + gustA*0.3)/3.6 * 0.85) * 100) / 100;
 
 /* ===== 雙模型 Ensemble ===== */
 
