@@ -19,7 +19,7 @@
 
 <link rel="canonical" href="https://leekunchan080822-dot.github.io/golfweather/">
 
-<title>全台灣高爾夫球場天氣 V8.12｜GCI 區域決策中心</title>
+<title>全台灣高爾夫球場天氣 V8.13｜GCI 區域決策中心</title>
 
 <style>
 body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f5f7fa;margin:0;padding:15px;}
@@ -521,14 +521,19 @@ function ensembleWeather(ecmwf,cwa){
 }
 
 function calculateGCI(pop,rain,temp,wind){
+
  let score=100;
 
+/* ===== 雨量扣分 ===== */
+
  if(rain<=0.05) score-=0;
-else if(rain<=0.2) score-=10;
-else if(rain<=0.5) score-=25;
-else if(rain<=1) score-=45;
-else if(rain<=2) score-=65;
-else score-=85;
+ else if(rain<=0.2) score-=10;
+ else if(rain<=0.5) score-=25;
+ else if(rain<=1) score-=45;
+ else if(rain<=2) score-=65;
+ else score-=85;
+
+/* ===== 降雨機率 ===== */
 
  if(pop<=20) score-=0;
  else if(pop<=40) score-=5;
@@ -536,41 +541,47 @@ else score-=85;
  else if(pop<=80) score-=22;
  else score-=35;
 
+/* ===== 溫度 ===== */
+
  let tempPenalty=0;
 
-if(temp>35) tempPenalty=30;
-else if(temp>=32) tempPenalty=12;
-else if(temp>=30) tempPenalty=6;
-else if(temp>=28) tempPenalty=3;
-else if(temp>=22) tempPenalty=0;
-else if(temp>=20) tempPenalty=3;
-else if(temp>=18) tempPenalty=6;
-else if(temp>=14) tempPenalty=12;
-else if(temp>=10) tempPenalty=20;
-else tempPenalty=30;
+ if(temp>35) tempPenalty=30;
+ else if(temp>=32) tempPenalty=12;
+ else if(temp>=30) tempPenalty=6;
+ else if(temp>=28) tempPenalty=3;
+ else if(temp>=22) tempPenalty=0;
+ else if(temp>=20) tempPenalty=3;
+ else if(temp>=18) tempPenalty=6;
+ else if(temp>=14) tempPenalty=12;
+ else if(temp>=10) tempPenalty=20;
+ else tempPenalty=30;
 
-/* 風速扣分 */
+/* 雨量低時溫度影響降低 */
 
-let windPenalty=0;
+ if(rain<0.2){
+   tempPenalty *=0.5;
+ }
 
-if(wind<=4) windPenalty=0;
-else if(wind<=6) windPenalty=3;
-else if(wind<=8) windPenalty=8;
-else if(wind<=10) windPenalty=18;
-else if(wind<=12) windPenalty=30;
-else windPenalty=45;
+ score -= tempPenalty;
 
-score-=windPenalty;
+/* ===== 風速 ===== */
 
- if(rain<0.2) tempPenalty*=0.5;
+ let windPenalty=0;
 
- score-=tempPenalty;
+ if(wind<=4) windPenalty=0;
+ else if(wind<=6) windPenalty=3;
+ else if(wind<=8) windPenalty=8;
+ else if(wind<=10) windPenalty=18;
+ else if(wind<=12) windPenalty=30;
+ else windPenalty=45;
 
-/* 雨量 + 高機率 組合懲罰 */
+ score -= windPenalty;
 
-if(rain > 0.2 && pop > 60){
-  score -= 10;
-}
+/* ===== 雨量 + 高機率組合懲罰 ===== */
+
+ if(rain > 0.2 && pop > 60){
+   score -= 10;
+ }
 
  return Math.max(0,Math.min(100,Math.round(score)));
 }
@@ -1360,6 +1371,21 @@ try{
 
 };
 
+const maxVal=(arr,key)=>{
+
+ if(!arr.length || !data.hourly[key]) return 0;
+
+ let v = 0;
+
+ arr.forEach(i=>{
+   const val = data.hourly[key][i] || 0;
+   if(val > v) v = val;
+ });
+
+ return Math.round(v * 100) / 100;
+
+};
+
       const morningIndex=
         data.hourly.time
         .map((t,i)=>{
@@ -1381,14 +1407,14 @@ try{
         continue;
       }
 
-      const popMorning=avg(morningIndex,"precipitation_probability");
-let rainMorning=avg(morningIndex,"precipitation");
+      const popMorning=maxVal(morningIndex,"precipitation_probability");
+let rainMorning=maxVal(morningIndex,"precipitation");
 
 const today = new Date().toISOString().slice(0,10);
 
 if(date===today){
 
-  if(stationRain>rainMorning) rainMorning=stationRain;
+  if(stationRain>rainMorning && stationRain<10) rainMorning=stationRain;
 
 }
 const tempMorning=avg(morningIndex,"apparent_temperature");
@@ -1398,12 +1424,12 @@ const gust = avg(morningIndex,"windgusts_10m");
 const windMorning =
 Math.round(((windspeed*0.7 + gust*0.3)/3.6 * 0.85) * 100) / 100;
 
-const popAfternoon=avg(afternoonIndex,"precipitation_probability");
-let rainAfternoon=avg(afternoonIndex,"precipitation");
+const popAfternoon=maxVal(afternoonIndex,"precipitation_probability");
+let rainAfternoon=maxVal(afternoonIndex,"precipitation");
 
 if(date===today){
 
-  if(stationRain>rainAfternoon) rainAfternoon=stationRain;
+  if(stationRain>rainAfternoon && stationRain<10) rainAfternoon=stationRain;
 
 }
 const tempAfternoon=avg(afternoonIndex,"apparent_temperature");
