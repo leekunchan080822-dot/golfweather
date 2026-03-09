@@ -1710,14 +1710,12 @@ function renderCourses(){
      html+=`
      <div class="day-block">
        <div class="day-title"
-         onclick="this.nextElementSibling.style.display=
-         this.nextElementSibling.style.display==='none'?'block':'none'">
-         📅 ${day.date}（${getWeekday(day.date)}）
-<br>
-⛳ 建議開球時段：${day.bestTime}
+  onclick="this.nextElementSibling.style.display=
+  this.nextElementSibling.style.display==='none'?'block':'none'">
+  📅 ${day.date}（${getWeekday(day.date)}）
 ${day.date === new Date().toISOString().slice(0,10) ? 
 `<br>🌧 即時降雨判斷：${day.nowcast}` : ""}
-       </div>
+</div>
 
        <div style="display:${showDefault?'block':'none'}">
          <div class="period-box">
@@ -1744,7 +1742,7 @@ ${day.morningScore}
 <div style="font-size:11px;color:#555;margin-bottom:4px;">
 點擊查看詳細分析
 </div>
-             預報雨量 ${day.rainMorning}mm<br>
+             雨量 ${day.rainMorning}mm<br>
 降雨機率 ${day.popMorning}%<br>
 風速 ${day.windMorning} m/s<br>
 體感溫度 ${day.tempMorning}℃
@@ -1771,7 +1769,7 @@ ${day.afternoonScore}
 <div style="font-size:11px;color:#555;margin-bottom:4px;">
 點擊查看詳細分析
 </div>
-             預報雨量 ${day.rainAfternoon}mm<br>
+             雨量 ${day.rainAfternoon}mm<br>
 降雨機率 ${day.popAfternoon}%<br>
 風速 ${day.windAfternoon} m/s<br>
 體感溫度 ${day.tempAfternoon}℃
