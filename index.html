@@ -31,6 +31,8 @@ href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script>
 let mapMode="morning";
 let mapDay=0;
+const WORKER_BASE="https://gci.leekunchan080822.workers.dev";
+let isLoadingAll=false;
 
 /* ======================
    🔥 穩定核心（Queue + Cache）
@@ -92,7 +94,7 @@ async function safeFetch(url){
   const timeoutId = setTimeout(()=>controller.abort(),10000);
 
   try{
-    const res = await fetch(url,{signal:controller.signal});
+    const res = await fetch(url,{signal:controller.signal,cache:"no-store"});
     clearTimeout(timeoutId);
 
     if(!res.ok){
@@ -107,6 +109,18 @@ async function safeFetch(url){
     console.warn("Fetch失敗:",url,e);
     return null;
   }
+}
+
+async function fetchJsonWithRetry(url,retries=2){
+  let data = null;
+  for(let i=0;i<=retries;i++){
+    data = await safeFetch(url);
+    if(data) return data;
+    if(i < retries){
+      await new Promise(r=>setTimeout(r,600 * (i+1)));
+    }
+  }
+  return null;
 }
 
 function setMapMode(mode){
@@ -1621,10 +1635,9 @@ async function fetchRainStations(){
 
  try{
 
-  const url =
-  "https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0002-001?Authorization=CWA-60E4630E-A677-453A-BD76-C74F148C86ED";
+  const url = `${WORKER_BASE}/rain-stations`;
 
-  const data = await safeFetch(url);
+  const data = await fetchJsonWithRetry(url);
 
 if(!data) return;
 
@@ -1847,9 +1860,9 @@ async function getCwaWeather(city){
   }
 
   const url =
-`https://gci.leekunchan080822.workers.dev/cwa?city=${encodeURIComponent(city.replace("臺","台"))}`;
+`${WORKER_BASE}/cwa?city=${encodeURIComponent(city.replace("臺","台"))}`;
 
-  const data = await safeFetch(url);
+  const data = await fetchJsonWithRetry(url);
 
 if(!data){
   return null;
@@ -1918,9 +1931,9 @@ async function fetchWeather(lat,lon){
  return apiQueue.add(async ()=>{
 
    const url =
-`https://gci.leekunchan080822.workers.dev/weather?lat=${lat}&lon=${lon}`;
+`${WORKER_BASE}/weather?lat=${lat}&lon=${lon}`;
 
-   const data = await safeFetch(url);
+   const data = await fetchJsonWithRetry(url);
 
    if(data){
      setCache(key,data);
@@ -1945,11 +1958,12 @@ async function fetchSunrise(lat,lon,date){
 
  try{
 
-  const url =
-`https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lon}&date=${date}&formatted=0`;
+  const url = `${WORKER_BASE}/sunrise?lat=${lat}&lon=${lon}&date=${date}`;
 
-  const res = await fetch(url);
-  const data = await res.json();
+  const data = await fetchJsonWithRetry(url);
+  if(!data || !data.results || !data.results.sunrise){
+    throw new Error("sunrise data unavailable");
+  }
 
   const sunriseUTC = data.results.sunrise;
 
@@ -2579,7 +2593,10 @@ ${todayAvg}
 
 async function loadAll(){
 
+if(isLoadingAll) return;
+isLoadingAll = true;
 document.getElementById("mapLoading").style.display="block";
+try{
 
  createRegionButtons();
 
@@ -2821,7 +2838,8 @@ nowcast: rainNowcast(
 
     fetchCount++;
 
-    document.getElementById("mapProgress").innerText = fetchCount;
+    const progressEl = document.getElementById("mapProgress");
+    if(progressEl) progressEl.innerText = fetchCount;
 
     // 每 3 筆才重繪一次，避免瘋狂刷新
     if(fetchCount % 3 === 0){
@@ -2842,6 +2860,9 @@ buildRanking();
 renderDecisionCenter();
 
 document.getElementById("mapLoading").style.display="none";
+} finally {
+ isLoadingAll = false;
+}
 }
 
 function toggleWeekTrend(el){
