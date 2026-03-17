@@ -21,15 +21,9 @@
 
 <meta name="twitter:card" content="summary_large_image">
 
-
-
-<meta property="og:site_name" content="GCI 高爾夫舒適指數">
-
-<meta name="twitter:card" content="summary_large_image">
-
 <link rel="canonical" href="https://leekunchan080822-dot.github.io/golfweather/">
 
-<title>全台高爾夫天氣決策中心 V1.1.4</title>
+<title>全台高爾夫天氣決策中心 V1.1.6</title>
 
 <link rel="stylesheet"
 href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -37,6 +31,83 @@ href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script>
 let mapMode="morning";
 let mapDay=0;
+
+/* ======================
+   🔥 穩定核心（Queue + Cache）
+====================== */
+
+class RequestQueue {
+  constructor(limit=5){
+    this.limit=limit;
+    this.running=0;
+    this.queue=[];
+  }
+
+  add(task){
+    return new Promise((resolve,reject)=>{
+      this.queue.push({task,resolve,reject});
+      this.run();
+    });
+  }
+
+  async run(){
+    if(this.running>=this.limit || this.queue.length===0) return;
+
+    const {task,resolve,reject}=this.queue.shift();
+    this.running++;
+
+    try{
+      const result=await task();
+      resolve(result);
+    }catch(e){
+      reject(e);
+    }
+
+    this.running--;
+    this.run();
+  }
+}
+
+const apiQueue = new RequestQueue(5);
+
+/* Cache */
+const CACHE={};
+const CACHE_TTL=10*60*1000;
+
+function getCache(key){
+  const d=CACHE[key];
+  if(d && Date.now()-d.time<CACHE_TTL){
+    return d.value;
+  }
+  return null;
+}
+
+function setCache(key,val){
+  CACHE[key]={time:Date.now(),value:val};
+}
+
+/* 安全 fetch */
+async function safeFetch(url){
+  const controller = new AbortController();
+  const timeoutId = setTimeout(()=>controller.abort(),10000);
+
+  try{
+    const res = await fetch(url,{signal:controller.signal});
+    clearTimeout(timeoutId);
+
+    if(!res.ok){
+      console.warn("API錯誤:",res.status,url);
+      return null;
+    }
+
+    return await res.json();
+
+  }catch(e){
+    clearTimeout(timeoutId);
+    console.warn("Fetch失敗:",url,e);
+    return null;
+  }
+}
 
 function setMapMode(mode){
 
@@ -567,13 +638,6 @@ border-radius:12px;
 </div>
 
 </div>
-</div>
-
-
-
-
-
-</div>
 
 <button class="decision-btn" onclick="toggleDecision()">
 查看AI 打球決策中心
@@ -934,7 +998,7 @@ function golfSummary(pop,rain,temp,wind,score){
 
 }
 
-function explainScore(pop,rain,temp,wind,score){
+function explainScore(pop,rain,temp,wind,score,radarRain){
 
 let base = 100;
 
@@ -989,7 +1053,7 @@ else if(pop<=60) popPenalty = 12;
 else if(pop<=80) popPenalty = 22;
 else popPenalty = 35;
 
-/* ===== 風速扣分（與 calculateGCI 完全一致） ===== */
+/* ===== 風速扣分 ===== */
 
 let windPenalty = 0;
 
@@ -1015,13 +1079,11 @@ else if(temp>=14) tempPenalty=12;
 else if(temp>=10) tempPenalty=20;
 else tempPenalty=30;
 
-/* 雨量低時溫度影響降低 */
-
 if(rain<0.3){
  tempPenalty *=0.5;
 }
 
-/* ===== 雨量+機率組合懲罰 ===== */
+/* ===== 組合懲罰 ===== */
 
 let comboPenalty = 0;
 
@@ -1038,77 +1100,48 @@ windPenalty +
 tempPenalty +
 comboPenalty;
 
+/* ===== 回傳 HTML ===== */
+
 return `
 
 基礎分數：<b>100</b><br><br>
 
-預報雨量 ${rain}mm 
-<span style="color:#dc2626;">→ -${rainPenalty}</span>
-<span style="font-size:13px;color:#666;">
-（${rainExplain(rain)}）
-</span><br>
-
-降雨機率 ${pop}% 
-<span style="color:#dc2626;">→ -${popPenalty}</span>
-<span style="font-size:13px;color:#666;">
-（${popExplain(pop)}）
-</span><br>
-
-風速 ${windBeaufort(wind)}級風（${wind.toFixed(1)} m/s） 
-<span style="color:#dc2626;">→ -${windPenalty}</span>
-<span style="font-size:13px;color:#666;">
-（${windExplain(wind)}）
-</span><br>
-
-體感溫度 ${temp}℃ 
-<span style="color:#dc2626;">→ -${Math.round(tempPenalty)}</span>
-<span style="font-size:13px;color:#666;">
-（${tempExplain(temp)}）
-</span><br>
-
-${comboPenalty>0 ? `
-降雨風險加權 
-<span style="color:#dc2626;">→ -${comboPenalty}</span><br>
-<span style="font-size:13px;color:#555;">
-降雨量與降雨機率同時偏高，打球中斷風險增加
-</span><br><br>
-` : ""}
+預報雨量 ${rain}mm → -${rainPenalty}<br>
+降雨機率 ${pop}% → -${popPenalty}<br>
+風速 ${wind} m/s → -${windPenalty}<br>
+體感溫度 ${temp}℃ → -${Math.round(tempPenalty)}<br>
 
 <hr style="margin:8px 0;">
 
 <b>最終分數：${score}</b>
 
+${radarRain > 0.3 ? `
 <br><br>
+<div style="color:#dc2626;font-weight:700;">
+⚠ 即時雷達：附近有降雨（${radarRain} mm）
+</div>
+` : ""}
 
-<div style="
-background:#f8fafc;
-border-radius:10px;
-padding:12px;
-font-size:13px;
-color:#333;
-margin-top:8px;
-line-height:1.6;
-">
-
-<b>AI 打球判讀</b><br>
+<br><br>
 
 ${golfSummary(pop,rain,temp,wind,score)}
 
-${golfRisk(pop,rain,temp,wind)!=="天氣穩定，沒有明顯打球風險"
-? `<div style="margin-top:6px;color:#b45309;">
-⚠ ${golfRisk(pop,rain,temp,wind)}
-</div>`
-: ""}
-
-</div>
 `;
 
 }
+
+
 
 const DECISION={default_show_days:2,max_concurrent_fetch:6};
 
 document.getElementById("dateInfo").innerText=
 "資料更新時間："+new Date().toLocaleString();
+
+function getTodayLocalDate(){
+ return new Date(new Date().getTime() - new Date().getTimezoneOffset()*60000)
+ .toISOString()
+ .slice(0,10);
+}
 
 function getWeekday(dateStr){
  const d=new Date(dateStr);
@@ -1166,11 +1199,12 @@ function clearSearch(){
 
 }
 
+document.addEventListener("DOMContentLoaded", function(){
+
 const searchInput = document.getElementById("searchInput");
 const searchClear = document.getElementById("searchClear");
 
 /* Enter 搜尋 */
-
 searchInput.addEventListener("keydown",function(e){
  if(e.key==="Enter"){
    doSearch();
@@ -1178,27 +1212,22 @@ searchInput.addEventListener("keydown",function(e){
 });
 
 /* 即時搜尋 */
-
 searchInput.addEventListener("input",function(){
 
  const v = this.value.trim().toLowerCase();
-
  searchKeyword = v;
 
  if(v){
-
    selectedRegion="全部";
    createRegionButtons();
    searchClear.style.display="block";
-
  }else{
-
    searchClear.style.display="none";
-
  }
 
  closeDecision();
  renderCourses();
+});
 
 });
 
@@ -1208,10 +1237,13 @@ function ensembleWeather(ecmwf,cwa){
 
  if(!cwa) return ecmwf;
 
+ const cwaPop = Number.isFinite(Number(cwa.pop)) ? Number(cwa.pop) : ecmwf.pop;
+ const cwaTemp = Number.isFinite(Number(cwa.temp)) ? Number(cwa.temp) : ecmwf.temp;
+
  const pop =
  Math.round(
    ecmwf.pop*0.75 +
-   parseFloat(cwa.pop)*0.25
+   cwaPop*0.25
  );
 
  let rain = ecmwf.rain;
@@ -1230,7 +1262,7 @@ function ensembleWeather(ecmwf,cwa){
 
  const temp =
  Math.round(
-   (parseFloat(ecmwf.temp) + parseFloat(cwa.temp)) / 2
+   (Number(ecmwf.temp) + cwaTemp) / 2
  );
 
  return {pop,rain,temp};
@@ -1258,7 +1290,13 @@ function rainDurationPenalty(hours){
 
 }
 
-function calculateGCI(pop,rain,temp,wind,rainHours){
+function calculateGCI(pop,rain,temp,wind,rainHours=0){
+
+ pop = Number.isFinite(Number(pop)) ? Number(pop) : 0;
+ rain = Number.isFinite(Number(rain)) ? Number(rain) : 0;
+ temp = Number.isFinite(Number(temp)) ? Number(temp) : 25;
+ wind = Number.isFinite(Number(wind)) ? Number(wind) : 0;
+ rainHours = Number.isFinite(Number(rainHours)) ? Number(rainHours) : 0;
 
  let score=100;
 
@@ -1369,7 +1407,8 @@ async function bestTeeTimeFromHours(day,date,data,lat,lon){
      pop[i] || 0,
      rain[i] || 0,
      temp[i] || 25,
-     wind[i] || 0
+     wind[i] || 0,
+     0
    );
 
    hourlyScores.push({
@@ -1443,7 +1482,7 @@ function scoreColor(score){
 
 function renderTodayTopCourses(){
 
- const today = new Date().toISOString().slice(0,10);
+ const today = getTodayLocalDate();
 
  let list = [];
 
@@ -1585,8 +1624,9 @@ async function fetchRainStations(){
   const url =
   "https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0002-001?Authorization=CWA-60E4630E-A677-453A-BD76-C74F148C86ED";
 
-  const res = await fetch(url);
-  const data = await res.json();
+  const data = await safeFetch(url);
+
+if(!data) return;
 
   rainStations = data.records.Station.map(s=>({
 
@@ -1807,10 +1847,13 @@ async function getCwaWeather(city){
   }
 
   const url =
-`https://corsproxy.io/?https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-D0047-091?Authorization=CWA-60E4630E-A677-453A-BD76-C74F148C86ED&countyName=${city.replace("臺","台")}`;
+`https://gci.leekunchan080822.workers.dev/cwa?city=${encodeURIComponent(city.replace("臺","台"))}`;
 
-  const res = await fetch(url);
-  const data = await res.json();
+  const data = await safeFetch(url);
+
+if(!data){
+  return null;
+}
 
   const locations =
     data?.records?.Locations?.[0]?.Location || [];
@@ -1865,22 +1908,26 @@ if(!location){
 
 async function fetchWeather(lat,lon){
 
- try{
+ const key = `weather_${lat}_${lon}`;
+ const cached = getCache(key);
 
-  const url =
-`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=precipitation,precipitation_probability,apparent_temperature,windspeed_10m,windgusts_10m&timezone=Asia%2FTaipei&forecast_days=7`;
-
-  const res = await fetch(url);
-
-  return await res.json();
-
- }catch(e){
-
-  console.error("API錯誤",e);
-
-  return {};
-
+ if(cached){
+   return cached;
  }
+
+ return apiQueue.add(async ()=>{
+
+   const url =
+`https://gci.leekunchan080822.workers.dev/weather?lat=${lat}&lon=${lon}`;
+
+   const data = await safeFetch(url);
+
+   if(data){
+     setCache(key,data);
+   }
+
+   return data;
+ });
 
 }
 
@@ -2157,7 +2204,7 @@ ${stabilityStars(
 onclick="this.nextElementSibling.style.display=
 this.nextElementSibling.style.display==='none'?'block':'none'">
 ${day.date}（${getWeekday(day.date)}）
-${day.date === new Date().toISOString().slice(0,10) ? 
+${day.date === getTodayLocalDate() ? 
 `<br>🌧 即時降雨判斷：${day.nowcast}` : ""}
 </div>
 
@@ -2172,7 +2219,7 @@ ${day.date === new Date().toISOString().slice(0,10) ?
  ${day.tempMorning},
  ${day.windMorning},
  ${day.morningScore},
- ${day.radarRain}
+ ${day.radarRain || 0}
 )
  )">
 <div class="info-icon">ℹ</div>
@@ -2198,7 +2245,7 @@ ${day.morningScore}
  ${day.tempAfternoon},
  ${day.windAfternoon},
  ${day.afternoonScore},
- ${day.radarRain}
+ ${day.radarRain || 0}
 )
  )">
 <div class="info-icon">ℹ</div>
@@ -2545,7 +2592,11 @@ await fetchRainStations();
 const cities=[...new Set(courses.map(c=>c.city))];
 
 for(const city of cities){
- await getCwaWeather(city);
+
+ await apiQueue.add(async ()=>{
+   return await getCwaWeather(city);
+ });
+
 }
 
  const queue=[...courses];
@@ -2634,7 +2685,7 @@ const maxVal=(arr,key)=>{
         continue;
       }
 
-      const today = new Date().toISOString().slice(0,10);
+      const today = getTodayLocalDate();
 
 const popMorning = maxVal(morningIndex,"precipitation_probability");
 let rainMorning = avg(morningIndex,"precipitation");
@@ -3008,14 +3059,19 @@ if(markers.length){
 }
 }
 
-initMap();
-loadAll();
-updateMapStatus();
+document.addEventListener("DOMContentLoaded", async function(){
+
+  initMap();
+  await loadAll();
+  updateMapStatus();
+
+});
 
 /* 每10分鐘更新一次雨量站 */
 setInterval(async ()=>{
   await fetchRainStations();
   renderCourses();
+  renderMap();
 },600000);
 
 </script>
