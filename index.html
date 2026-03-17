@@ -21,6 +21,12 @@
 
 <meta name="twitter:card" content="summary_large_image">
 
+
+
+<meta property="og:site_name" content="GCI 高爾夫舒適指數">
+
+<meta name="twitter:card" content="summary_large_image">
+
 <link rel="canonical" href="https://leekunchan080822-dot.github.io/golfweather/">
 
 <title>全台高爾夫天氣決策中心 V1.1.6</title>
@@ -31,8 +37,6 @@ href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script>
 let mapMode="morning";
 let mapDay=0;
-const WORKER_BASE="https://gci.leekunchan080822.workers.dev";
-let isLoadingAll=false;
 
 /* ======================
    🔥 穩定核心（Queue + Cache）
@@ -89,35 +93,31 @@ function setCache(key,val){
 }
 
 /* 安全 fetch */
-async function safeFetch(url){
-  const controller = new AbortController();
-  const timeoutId = setTimeout(()=>controller.abort(),10000);
+async function safeFetch(url, options = {}, timeoutMs = 12000, retry = 1){
+  for(let attempt=0; attempt<=retry; attempt++){
+    const controller = new AbortController();
+    const timeout = setTimeout(()=>controller.abort(), timeoutMs);
 
-  try{
-    const res = await fetch(url,{signal:controller.signal,cache:"no-store"});
-    clearTimeout(timeoutId);
+    try{
+      const res = await fetch(url,{
+        ...options,
+        signal: controller.signal
+      });
 
-    if(!res.ok){
-      console.warn("API錯誤:",res.status,url);
-      return null;
-    }
+      clearTimeout(timeout);
 
-    return await res.json();
+      if(!res.ok){
+        console.warn("API錯誤:",res.status,url);
+        if(attempt===retry) return null;
+        continue;
+      }
 
-  }catch(e){
-    clearTimeout(timeoutId);
-    console.warn("Fetch失敗:",url,e);
-    return null;
-  }
-}
+      return await res.json();
 
-async function fetchJsonWithRetry(url,retries=2){
-  let data = null;
-  for(let i=0;i<=retries;i++){
-    data = await safeFetch(url);
-    if(data) return data;
-    if(i < retries){
-      await new Promise(r=>setTimeout(r,600 * (i+1)));
+    }catch(e){
+      clearTimeout(timeout);
+      console.warn("Fetch失敗:",url,e);
+      if(attempt===retry) return null;
     }
   }
   return null;
@@ -1151,10 +1151,12 @@ const DECISION={default_show_days:2,max_concurrent_fetch:6};
 document.getElementById("dateInfo").innerText=
 "資料更新時間："+new Date().toLocaleString();
 
-function getTodayLocalDate(){
- return new Date(new Date().getTime() - new Date().getTimezoneOffset()*60000)
- .toISOString()
- .slice(0,10);
+function getTodayLocal(){
+ const now = new Date();
+ const y = now.getFullYear();
+ const m = String(now.getMonth()+1).padStart(2,"0");
+ const d = String(now.getDate()).padStart(2,"0");
+ return `${y}-${m}-${d}`;
 }
 
 function getWeekday(dateStr){
@@ -1166,6 +1168,7 @@ let searchKeyword="";
 let selectedRegion="全部";
 let weatherCache={};
 let rankingData={};
+let isLoadingAll=false;
 
 let CWA_CACHE={};
 function extractDistrict(address){
@@ -1251,13 +1254,10 @@ function ensembleWeather(ecmwf,cwa){
 
  if(!cwa) return ecmwf;
 
- const cwaPop = Number.isFinite(Number(cwa.pop)) ? Number(cwa.pop) : ecmwf.pop;
- const cwaTemp = Number.isFinite(Number(cwa.temp)) ? Number(cwa.temp) : ecmwf.temp;
-
  const pop =
  Math.round(
    ecmwf.pop*0.75 +
-   cwaPop*0.25
+   parseFloat(cwa.pop)*0.25
  );
 
  let rain = ecmwf.rain;
@@ -1276,7 +1276,7 @@ function ensembleWeather(ecmwf,cwa){
 
  const temp =
  Math.round(
-   (Number(ecmwf.temp) + cwaTemp) / 2
+   (parseFloat(ecmwf.temp) + parseFloat(cwa.temp)) / 2
  );
 
  return {pop,rain,temp};
@@ -1308,68 +1308,61 @@ function calculateGCI(pop,rain,temp,wind,rainHours=0){
 
  pop = Number.isFinite(Number(pop)) ? Number(pop) : 0;
  rain = Number.isFinite(Number(rain)) ? Number(rain) : 0;
- temp = Number.isFinite(Number(temp)) ? Number(temp) : 25;
+ temp = Number.isFinite(Number(temp)) ? Number(temp) : 24;
  wind = Number.isFinite(Number(wind)) ? Number(wind) : 0;
  rainHours = Number.isFinite(Number(rainHours)) ? Number(rainHours) : 0;
 
  let score=100;
 
-/* ===== 雨量扣分 ===== */
+ /* ===== 雨量扣分（主因） ===== */
+ score -= rainPenaltyCalc(rain);
 
-score -= rainPenaltyCalc(rain);
-score -= rainDurationPenalty(rainHours);
+ /* ===== 連續降雨時長 ===== */
+ score -= rainDurationPenalty(rainHours);
 
-/* ===== 降雨機率 ===== */
+ /* ===== 降雨機率（作為放大器） ===== */
+ let popPenalty = 0;
+ if(pop<=30) popPenalty = 0;
+ else if(pop<=50) popPenalty = 4;
+ else if(pop<=70) popPenalty = 9;
+ else if(pop<=85) popPenalty = 15;
+ else popPenalty = 22;
 
- if(pop<=20) score-=0;
- else if(pop<=40) score-=5;
- else if(pop<=60) score-=12;
- else if(pop<=80) score-=22;
- else score-=35;
+ if(rain <= 0.2 && pop >= 70) popPenalty = Math.min(popPenalty, 8);
+ if(rain >= 1 && pop >= 70) popPenalty += 4;
 
+ score -= popPenalty;
 
-
-/* ===== 風速 ===== */
-
+ /* ===== 風速 ===== */
  let windPenalty=0;
-
- if(wind<=4) windPenalty=0;
- else if(wind<=6) windPenalty=3;
- else if(wind<=8) windPenalty=8;
- else if(wind<=10) windPenalty=18;
- else if(wind<=12) windPenalty=30;
- else windPenalty=45;
+ if(wind<=3) windPenalty=0;
+ else if(wind<=5) windPenalty=2;
+ else if(wind<=6.5) windPenalty=6;
+ else if(wind<=8) windPenalty=12;
+ else if(wind<=10) windPenalty=22;
+ else if(wind<=12) windPenalty=34;
+ else windPenalty=48;
 
  score -= windPenalty;
 
-/* ===== 溫度 ===== */
-
+ /* ===== 溫度 ===== */
  let tempPenalty=0;
-
- if(temp>35) tempPenalty=30;
- else if(temp>=32) tempPenalty=12;
- else if(temp>=30) tempPenalty=6;
- else if(temp>=28) tempPenalty=3;
- else if(temp>=22) tempPenalty=0;
- else if(temp>=20) tempPenalty=3;
- else if(temp>=18) tempPenalty=6;
- else if(temp>=14) tempPenalty=12;
- else if(temp>=10) tempPenalty=20;
- else tempPenalty=30;
-
-/* 雨量低時溫度影響降低 */
-
- if(rain<0.3){
-   tempPenalty *=0.5;
- }
+ if(temp>35) tempPenalty=20;
+ else if(temp>=33) tempPenalty=10;
+ else if(temp>=31) tempPenalty=5;
+ else if(temp>=28) tempPenalty=2;
+ else if(temp>=20) tempPenalty=0;
+ else if(temp>=17) tempPenalty=4;
+ else if(temp>=14) tempPenalty=8;
+ else if(temp>=10) tempPenalty=14;
+ else tempPenalty=20;
 
  score -= tempPenalty;
 
-/* ===== 雨量 + 高機率組合懲罰 ===== */
-
- if(rain > 0.2 && pop > 60){
-   score -= 10;
- }
+ /* ===== 組合懲罰 ===== */
+ if(rain > 0.3 && pop > 70) score -= 6;
+ if(rain >= 1.5 && wind >= 8) score -= 6;
+ if(rainHours >= 3 && rain >= 0.5) score -= 4;
 
  return Math.max(0,Math.min(100,Math.round(score)));
 }
@@ -1392,76 +1385,7 @@ function stabilityStars(score){
 
 /* ===== AI 最佳開球時間（連續最佳3小時） ===== */
 
-async function bestTeeTimeFromHours(day,date,data,lat,lon){
-
- const hours = data.hourly.time;
- const rain = data.hourly.precipitation;
- const pop = data.hourly.precipitation_probability;
- const temp = data.hourly.apparent_temperature;
- const wind = data.hourly.windspeed_10m;
-
- let sunrise = await fetchSunrise(lat,lon,date);
-
- let startHour = Math.floor(sunrise + 0.5);
- if(startHour < 5) startHour = 5;
-
- let endHour = 14;
-
- let hourlyScores = [];
-
- hours.forEach((t,i)=>{
-
-   if(!t.startsWith(date)) return;
-
-   const h = parseInt(t.substring(11,13));
-
-   if(h < startHour || h > endHour) return;
-
-   const score = calculateGCI(
-     pop[i] || 0,
-     rain[i] || 0,
-     temp[i] || 25,
-     wind[i] || 0,
-     0
-   );
-
-   hourlyScores.push({
-     hour:h,
-     score:score
-   });
-
- });
-
- if(hourlyScores.length < 3){
-   return "—";
- }
-
- /* ===== 找連續3小時最佳 ===== */
-
- let bestScore = -1;
- let bestStart = hourlyScores[0].hour;
-
- for(let i=0;i<hourlyScores.length-2;i++){
-
-   const avg =
-   (hourlyScores[i].score +
-    hourlyScores[i+1].score +
-    hourlyScores[i+2].score) / 3;
-
-   if(avg > bestScore){
-
-     bestScore = avg;
-     bestStart = hourlyScores[i].hour;
-
-   }
-
- }
-
- const end = bestStart + 3;
-
- return `${bestStart.toString().padStart(2,"0")}:00–${end.toString().padStart(2,"0")}:00`;
-
-}
+/* 已取消：最佳開球時間功能 */
 
 
 function reasonText(pop,rain,temp){
@@ -1496,7 +1420,7 @@ function scoreColor(score){
 
 function renderTodayTopCourses(){
 
- const today = getTodayLocalDate();
+ const today = getTodayLocal();
 
  let list = [];
 
@@ -1634,27 +1558,21 @@ let rainStations = [];
 async function fetchRainStations(){
 
  try{
+  const url = "https://gci.leekunchan080822.workers.dev/rain-stations";
+  const data = await safeFetch(url, {}, 12000, 1);
+  if(!data?.records?.Station) return;
 
-  const url = `${WORKER_BASE}/rain-stations`;
-
-  const data = await fetchJsonWithRetry(url);
-
-if(!data) return;
-
-  rainStations = data.records.Station.map(s=>({
-
-   lat: parseFloat(s.GeoInfo.Coordinates[1].StationLatitude),
-   lon: parseFloat(s.GeoInfo.Coordinates[1].StationLongitude),
-   rain: parseFloat(s.RainfallElement?.Now?.Precipitation ?? 0)
-
-  }));
+  rainStations = data.records.Station
+   .map(s=>({
+     lat: parseFloat(s.GeoInfo?.Coordinates?.[1]?.StationLatitude),
+     lon: parseFloat(s.GeoInfo?.Coordinates?.[1]?.StationLongitude),
+     rain: parseFloat(s.RainfallElement?.Now?.Precipitation ?? 0)
+   }))
+   .filter(s=>Number.isFinite(s.lat) && Number.isFinite(s.lon));
 
  }catch(e){
-
   console.log("RAIN STATION ERROR",e);
-
  }
-
 }
 
 /* ===== 雷達 Nowcast 判斷（30~60分鐘） ===== */
@@ -1687,165 +1605,159 @@ function radarNowcast(rain){
 
 /* 找出球場附近 30km 內最大雨量 */
 
-function getNearbyRain(lat,lon){
+function distanceKm(lat1,lon1,lat2,lon2){
+ const R = 6371;
+ const dLat = (lat2 - lat1) * Math.PI / 180;
+ const dLon = (lon2 - lon1) * Math.PI / 180;
+ const a =
+  Math.sin(dLat/2) * Math.sin(dLat/2) +
+  Math.cos(lat1 * Math.PI / 180) *
+  Math.cos(lat2 * Math.PI / 180) *
+  Math.sin(dLon/2) * Math.sin(dLon/2);
+ const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+ return R * c;
+}
 
- if(!rainStations.length) return 0;
+function getRainBands(lat,lon){
 
- let maxRain = 0;
+ if(!rainStations.length){
+  return {
+    nearAvg:0, midAvg:0, farAvg:0,
+    nearMax:0, midMax:0, farMax:0,
+    nearCount:0, midCount:0, farCount:0,
+    trendScore:0
+  };
+ }
+
+ let nearWeighted = 0, nearWeight = 0;
+ let midWeighted = 0, midWeight = 0;
+ let farWeighted = 0, farWeight = 0;
+ let nearMax = 0, midMax = 0, farMax = 0;
+ let nearCount = 0, midCount = 0, farCount = 0;
 
  rainStations.forEach(s=>{
+  const d = distanceKm(lat,lon,s.lat,s.lon);
+  const rain = Number.isFinite(Number(s.rain)) ? Number(s.rain) : 0;
 
-  const R = 6371;
-
-const dLat = (s.lat - lat) * Math.PI / 180;
-const dLon = (s.lon - lon) * Math.PI / 180;
-
-const a =
-Math.sin(dLat/2) * Math.sin(dLat/2) +
-Math.cos(lat * Math.PI / 180) *
-Math.cos(s.lat * Math.PI / 180) *
-Math.sin(dLon/2) * Math.sin(dLon/2);
-
-const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-
-const d = R * c;
-
-  if(d < 30){
-
-   if(s.rain > maxRain){
-     maxRain = s.rain;
-   }
-
+  if(d < 10){
+   const w = 1 / Math.max(d,1);
+   nearWeighted += rain * w;
+   nearWeight += w;
+   nearMax = Math.max(nearMax,rain);
+   nearCount++;
+  }else if(d < 20){
+   const w = 1 / Math.max(d,1);
+   midWeighted += rain * w;
+   midWeight += w;
+   midMax = Math.max(midMax,rain);
+   midCount++;
+  }else if(d < 35){
+   const w = 1 / Math.max(d,1);
+   farWeighted += rain * w;
+   farWeight += w;
+   farMax = Math.max(farMax,rain);
+   farCount++;
   }
-
  });
 
- return Math.round(maxRain * 100) / 100;
+ const nearAvg = nearWeight ? +(nearWeighted / nearWeight).toFixed(2) : 0;
+ const midAvg = midWeight ? +(midWeighted / midWeight).toFixed(2) : 0;
+ const farAvg = farWeight ? +(farWeighted / farWeight).toFixed(2) : 0;
 
+ return {
+  nearAvg, midAvg, farAvg,
+  nearMax:+nearMax.toFixed(2),
+  midMax:+midMax.toFixed(2),
+  farMax:+farMax.toFixed(2),
+  nearCount, midCount, farCount,
+  trendScore:+((farAvg * 0.7 + farMax * 0.3) - (nearAvg * 0.7 + nearMax * 0.3)).toFixed(2)
+ };
+}
+
+function getNearbyRain(lat,lon){
+ const bands = getRainBands(lat,lon);
+ return Math.max(bands.nearAvg,bands.nearMax);
 }
 
 function getRainGradient(lat,lon){
-
- if(!rainStations.length) return 0;
-
- let innerRain = 0;
- let outerRain = 0;
-
- rainStations.forEach(s=>{
-
-  const R = 6371;
-
-  const dLat = (s.lat - lat) * Math.PI / 180;
-  const dLon = (s.lon - lon) * Math.PI / 180;
-
-  const a =
-  Math.sin(dLat/2) * Math.sin(dLat/2) +
-  Math.cos(lat * Math.PI / 180) *
-  Math.cos(s.lat * Math.PI / 180) *
-  Math.sin(dLon/2) * Math.sin(dLon/2);
-
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  const d = R * c;
-
-  if(d < 20){
-   innerRain = Math.max(innerRain, s.rain);
-}
-
-if(d >= 20 && d < 60){
-   outerRain = Math.max(outerRain, s.rain);
-}
-
- });
-
- return outerRain - innerRain;
-
+ const bands = getRainBands(lat,lon);
+ return bands.trendScore;
 }
 
 /* ===== 雷達降雨 Nowcast 判斷 ===== */
 
 function rainNowcast(lat,lon,date,data){
 
- const stationRain = getNearbyRain(lat,lon);
- const rainGradient = getRainGradient(lat,lon);
+ const bands = getRainBands(lat,lon);
 
  if(!data.hourly || !data.hourly.time){
    return "資料不足";
  }
 
- const futureRain = data.hourly.precipitation;
-
+ const futureRain = data.hourly.precipitation || [];
+ const now = new Date();
  let nextHourRain = 0;
+ let next90Rain = 0;
  let rainDuration = 0;
 
- const now = new Date();
-
  for(let i=0;i<data.hourly.time.length;i++){
-
    const t = data.hourly.time[i];
-
    if(!t.startsWith(date)) continue;
 
    const hourTime = new Date(t);
-
    const diffMinutes = (hourTime - now) / 60000;
+   const r = Number(futureRain[i] || 0);
 
    if(diffMinutes >= 0 && diffMinutes <= 60){
-
-   const r = futureRain[i] || 0;
-
-   nextHourRain += r;
-
-   if(r > 0.1){
-     rainDuration++;
+     nextHourRain += r;
+     if(r > 0.1) rainDuration++;
    }
 
+   if(diffMinutes >= 0 && diffMinutes <= 90){
+     next90Rain += r;
+   }
  }
 
-}
+ const nearWet = bands.nearAvg >= 0.15 || bands.nearMax >= 0.4;
+ const midWet = bands.midAvg >= 0.2 || bands.midMax >= 0.5;
+ const farWet = bands.farAvg >= 0.25 || bands.farMax >= 0.7;
+ const approaching = bands.trendScore > 0.12;
+ const leaving = bands.trendScore < -0.12;
 
- /* 判斷邏輯 */
+ if(nearWet){
+   if(leaving && nextHourRain < 0.2){
+     return "球場附近有雨，但雨勢可能逐漸減弱";
+   }
+   if(rainDuration >= 2 || nextHourRain >= 0.8){
+     return "球場附近降雨可能持續";
+   }
+   return "球場附近有零星降雨，短時間內仍需注意";
+ }
 
-/* 1️⃣ 即時雨量（最可靠） */
+ if(midWet && approaching){
+   if(next90Rain >= 0.6){
+     return "雨區正在靠近，30–60 分鐘內降雨風險升高";
+   }
+   return "周邊雨帶有靠近趨勢，建議持續觀察";
+ }
 
-if(stationRain > 0.5){
+ if(farWet && approaching){
+   return "外圍有雨帶活動，稍後可能影響球場";
+ }
 
-  if(rainDuration === 0){
-    return "附近有降雨，30–60 分鐘內雨勢可能減弱";
-  }
+ if(nextHourRain >= 0.6 || rainDuration >= 2){
+   return "預報顯示未來 1 小時可能開始降雨";
+ }
 
-  if(rainDuration === 1){
-    return "附近有降雨，可能為短暫陣雨";
-  }
+ if(nextHourRain > 0.1 || next90Rain > 0.2){
+   return "可能有短暫陣雨";
+ }
 
-  return "附近降雨可能持續";
+ if(leaving){
+   return "附近雨勢正在遠離，短時間內相對穩定";
+ }
 
-}
-
-/* 2️⃣ 雨雲移動 */
-
-if(rainGradient > 0.1 && stationRain > 0.1){
-  return "雨雲正在靠近，30–60 分鐘降雨風險提高";
-}
-
-if(rainGradient < -0.1 && stationRain > 0.1){
-  return "降雨正在遠離，天氣可能逐漸好轉";
-}
-
-/* 3️⃣ 預報降雨 */
-
-if(stationRain < 0.2){
-
-  if(rainDuration >= 2){
-    return "未來 1 小時可能開始降雨";
-  }
-
-  if(rainDuration === 1){
-    return "可能有短暫陣雨";
-  }
-
-}
-
-return "短時間降雨風險低";
+ return "短時間降雨風險低";
 }
 
 
@@ -1854,30 +1766,27 @@ return "短時間降雨風險低";
 async function getCwaWeather(city){
 
   const cacheKey = city;
-
   if(CWA_CACHE[cacheKey]){
     return CWA_CACHE[cacheKey];
   }
 
   const url =
-`${WORKER_BASE}/cwa?city=${encodeURIComponent(city.replace("臺","台"))}`;
+`https://gci.leekunchan080822.workers.dev/cwa?city=${encodeURIComponent(city.replace("臺","台"))}`;
 
-  const data = await fetchJsonWithRetry(url);
+  const data = await safeFetch(url, {}, 12000, 1);
+  if(!data){
+    return null;
+  }
 
-if(!data){
-  return null;
-}
-
-  const locations =
-    data?.records?.Locations?.[0]?.Location || [];
+  const locations = data?.records?.Locations?.[0]?.Location || [];
 
   let location = locations.find(l =>
-  l.LocationName.includes(city.replace("市","").replace("縣",""))
-);
+    l.LocationName.includes(city.replace("市","").replace("縣",""))
+  );
 
-if(!location){
-  location = locations[0];
-}
+  if(!location){
+    location = locations[0];
+  }
 
   if(!location){
     console.log("CWA no location",city);
@@ -1888,7 +1797,7 @@ if(!location){
   let temp = null;
   let weather = null;
 
-  location.WeatherElement.forEach(el=>{
+  (location.WeatherElement || []).forEach(el=>{
 
     if(el.ElementName==="12小時降雨機率"){
       pop = el.Time?.[0]?.ElementValue?.[0]?.ProbabilityOfPrecipitation;
@@ -1905,17 +1814,13 @@ if(!location){
   });
 
   const result = {
-    pop: pop,
-    temp: temp,
-    weather: weather
+    pop: Number.isFinite(Number(pop)) ? Number(pop) : 0,
+    temp: Number.isFinite(Number(temp)) ? Number(temp) : 24,
+    weather: weather || ""
   };
 
   CWA_CACHE[cacheKey] = result;
-
-  console.log("CWA OK:",city,result);
-
   return result;
-
 }
 /* ===== ECMWF API ===== */
 
@@ -1928,20 +1833,16 @@ async function fetchWeather(lat,lon){
    return cached;
  }
 
- return apiQueue.add(async ()=>{
+ const url =
+`https://gci.leekunchan080822.workers.dev/weather?lat=${lat}&lon=${lon}`;
 
-   const url =
-`${WORKER_BASE}/weather?lat=${lat}&lon=${lon}`;
+ const data = await safeFetch(url, {}, 12000, 1);
 
-   const data = await fetchJsonWithRetry(url);
+ if(data){
+   setCache(key,data);
+ }
 
-   if(data){
-     setCache(key,data);
-   }
-
-   return data;
- });
-
+ return data;
 }
 
 /* ===== 在這裡新增（日出 API） ===== */
@@ -1957,15 +1858,16 @@ async function fetchSunrise(lat,lon,date){
  }
 
  try{
+  const url =
+`https://gci.leekunchan080822.workers.dev/sunrise?lat=${lat}&lon=${lon}&date=${date}`;
 
-  const url = `${WORKER_BASE}/sunrise?lat=${lat}&lon=${lon}&date=${date}`;
+  const data = await safeFetch(url, {}, 12000, 1);
+  const sunriseUTC = data?.results?.sunrise;
 
-  const data = await fetchJsonWithRetry(url);
-  if(!data || !data.results || !data.results.sunrise){
-    throw new Error("sunrise data unavailable");
+  if(!sunriseUTC){
+    sunriseCache[key] = 6;
+    return 6;
   }
-
-  const sunriseUTC = data.results.sunrise;
 
   const sunriseLocal =
   new Date(sunriseUTC)
@@ -1980,17 +1882,12 @@ async function fetchSunrise(lat,lon,date){
   const result = hour + minute/60;
 
   sunriseCache[key] = result;
-
   return result;
 
  }catch(e){
-
   console.log("sunrise error",e);
-
-  return 6; // fallback 06:00
-
+  return 6;
  }
-
 }
 
 /* ===== courses 陣列（完整保留） ===== */
@@ -2218,7 +2115,7 @@ ${stabilityStars(
 onclick="this.nextElementSibling.style.display=
 this.nextElementSibling.style.display==='none'?'block':'none'">
 ${day.date}（${getWeekday(day.date)}）
-${day.date === getTodayLocalDate() ? 
+${day.date === getTodayLocal() ? 
 `<br>🌧 即時降雨判斷：${day.nowcast}` : ""}
 </div>
 
@@ -2586,6 +2483,42 @@ ${todayAvg}
   container.innerHTML = html;
 }
 
+function persistForecastSnapshot(){
+ try{
+  const key = "gci_forecast_history_v1";
+  const history = JSON.parse(localStorage.getItem(key) || "[]");
+  const snapshot = {
+    ts: new Date().toLocaleString("zh-TW"),
+    today: getTodayLocal(),
+    courses: Object.keys(weatherCache).length,
+    data: weatherCache
+  };
+  history.push(snapshot);
+  while(history.length > 30){
+    history.shift();
+  }
+  localStorage.setItem(key, JSON.stringify(history));
+ }catch(e){
+  console.log("persistForecastSnapshot error", e);
+ }
+}
+
+function exportForecastHistory(){
+ try{
+  const key = "gci_forecast_history_v1";
+  const raw = localStorage.getItem(key) || "[]";
+  const blob = new Blob([raw], {type:"application/json;charset=utf-8"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `gci-forecast-history-${getTodayLocal()}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+ }catch(e){
+  console.log("exportForecastHistory error", e);
+ }
+}
+
+
 
 /* ===== 併發抓取 ===== */
 
@@ -2593,276 +2526,215 @@ ${todayAvg}
 
 async function loadAll(){
 
-if(isLoadingAll) return;
-isLoadingAll = true;
-document.getElementById("mapLoading").style.display="block";
-try{
+ if(isLoadingAll) return;
+ isLoadingAll = true;
 
- createRegionButtons();
+ const mapLoadingEl = document.getElementById("mapLoading");
+ const mapProgressEl = document.getElementById("mapProgress");
 
-/* 只抓一次全台雨量站 */
+ if(mapLoadingEl) mapLoadingEl.style.display="block";
 
-await fetchRainStations();
+ try{
+   createRegionButtons();
 
-/* ===== 預先抓取 CWA 城市資料（加速） ===== */
+   /* 只抓一次全台雨量站 */
+   await fetchRainStations();
 
-const cities=[...new Set(courses.map(c=>c.city))];
-
-for(const city of cities){
-
- await apiQueue.add(async ()=>{
-   return await getCwaWeather(city);
- });
-
-}
-
- const queue=[...courses];
- const workers=[];
- let fetchCount=0;
-
- for(let i=0;i<DECISION.max_concurrent_fetch;i++){
-
-  workers.push((async()=>{
-
-   while(queue.length){
-
-    const c=queue.shift();
-    let data;
-
-try{
-  data = await fetchWeather(c.lat,c.lon);
-}catch(e){
-  console.log("OpenMeteo error",e);
-  data = {};
-}
-
-    if(data.hourly && data.hourly.time){
-
-     weatherCache[c.name]=[];
-
-     const dates=[
-       ...new Set(
-         data.hourly.time.map(t=>t.substring(0,10))
-       )
-     ];
-     const cwa = await getCwaWeather(c.city);
-     console.log("使用 CWA 修正:",c.name,cwa);
-     
-const stationRain = getNearbyRain(c.lat,c.lon);
-     for(let d=0;d<dates.length;d++){
-
-      const date=dates[d];
-
-      const avg=(arr,key)=>{
-
-  if(!arr.length || !data.hourly[key]) return 0;
-
-  const value =
-    arr.reduce((s,i)=>{
-      return s + (data.hourly[key][i] || 0);
-    },0)/arr.length;
-
-  return Math.round(value * 100) / 100;
-
-};
-
-const maxVal=(arr,key)=>{
-
- if(!arr.length || !data.hourly[key]) return 0;
-
- let v = 0;
-
- arr.forEach(i=>{
-   const val = data.hourly[key][i] || 0;
-   if(val > v) v = val;
- });
-
- return Math.round(v * 100) / 100;
-
-};
-
-      const morningIndex=
-        data.hourly.time
-        .map((t,i)=>{
-          const h=parseInt(t.substring(11,13));
-          return t.startsWith(date) && h>=8 && h<12 ? i : null;
-        })
-        .filter(i=>i!==null);
-
-      const afternoonIndex=
-        data.hourly.time
-        .map((t,i)=>{
-          const h=parseInt(t.substring(11,13));
-          return t.startsWith(date) && h>=12 && h<18 ? i : null;
-        })
-        .filter(i=>i!==null);
-
-      // 若該日完全沒時段資料，跳過
-      if(!morningIndex.length && !afternoonIndex.length){
-        continue;
-      }
-
-      const today = getTodayLocalDate();
-
-const popMorning = maxVal(morningIndex,"precipitation_probability");
-let rainMorning = avg(morningIndex,"precipitation");
-if(date===today){
- rainMorning = rainMorning * 0.85 + stationRain * 0.15;
-}
-const rainHoursMorning =
-morningIndex.filter(i =>
- (data.hourly.precipitation[i] || 0) > 0.1
-).length;
-
-if(date===today && stationRain > 0.2){
-
-  rainMorning = Math.max(
-    rainMorning,
-    stationRain * 0.2
-  );
-
-}
-const tempMorning=avg(morningIndex,"apparent_temperature");
-const windspeed = avg(morningIndex,"windspeed_10m");
-const gust = avg(morningIndex,"windgusts_10m");
-
-const windMorning =
-Math.round(((windspeed*0.7 + gust*0.3)/3.6 * 0.85) * 100) / 100;
-
-const popAfternoon=maxVal(afternoonIndex,"precipitation_probability");
-let rainAfternoon = avg(afternoonIndex,"precipitation");
-
-if(date===today){
- rainAfternoon = rainAfternoon * 0.85 + stationRain * 0.15;
-}
-const rainHoursAfternoon =
-afternoonIndex.filter(i =>
- (data.hourly.precipitation[i] || 0) > 0.1
-).length;
-
-if(date===today && stationRain > 0.2){
-
-  rainAfternoon = Math.max(
-    rainAfternoon,
-    stationRain * 0.2
-  );
-
-}
-
-const tempAfternoon=avg(afternoonIndex,"apparent_temperature");
-const windspeedA = avg(afternoonIndex,"windspeed_10m");
-const gustA = avg(afternoonIndex,"windgusts_10m");
-
-const windAfternoon =
-Math.round(((windspeedA*0.7 + gustA*0.3)/3.6 * 0.85) * 100) / 100;
-
-/* ===== 雙模型 Ensemble ===== */
-
-const morningMerged =
-ensembleWeather(
- {pop:popMorning,rain:rainMorning,temp:tempMorning},
- cwa
-);
-
-const afternoonMerged =
-ensembleWeather(
- {pop:popAfternoon,rain:rainAfternoon,temp:tempAfternoon},
- cwa
-);
-
-const finalPopMorning = morningMerged.pop;
-const finalRainMorning = Math.round(morningMerged.rain * 1000) / 1000;
-const finalTempMorning = morningMerged.temp;
-
-const finalPopAfternoon = afternoonMerged.pop;
-const finalRainAfternoon =
-Math.round(afternoonMerged.rain * 10) / 10;
-const finalTempAfternoon = afternoonMerged.temp;
-
-      const morningScore =
-calculateGCI(
- finalPopMorning,
- finalRainMorning,
- finalTempMorning,
- windMorning,
- rainHoursMorning
-);
-
-const afternoonScore =
-calculateGCI(
- finalPopAfternoon,
- finalRainAfternoon,
- finalTempAfternoon,
- windAfternoon,
- rainHoursAfternoon
-);
-
-weatherCache[c.name].push({
-
-  date,
-
-bestTime: await bestTeeTimeFromHours(
-  null,
-  date,
-  data,
-  c.lat,
-  c.lon
-),
-
-nowcast: rainNowcast(
-  c.lat,
-  c.lon,
-  date,
-  data
-),
-  popMorning:finalPopMorning,
-  radarRain: stationRain,
-  rainMorning:finalRainMorning,
-  tempMorning:finalTempMorning,
-  windMorning,
-
-  popAfternoon:finalPopAfternoon,
-  rainAfternoon:finalRainAfternoon,
-  tempAfternoon:finalTempAfternoon,
-  windAfternoon,
-
-  morningScore,
-  afternoonScore,
-  morning:gciLight(morningScore),
-  afternoon:gciLight(afternoonScore)
-
-});
-     }
-
-    }
-
-    fetchCount++;
-
-    const progressEl = document.getElementById("mapProgress");
-    if(progressEl) progressEl.innerText = fetchCount;
-
-    // 每 3 筆才重繪一次，避免瘋狂刷新
-    if(fetchCount % 3 === 0){
- renderCourses();
- renderMap();
-}
-
+   /* 預先抓取 CWA 城市資料 */
+   const cities=[...new Set(courses.map(c=>c.city))];
+   for(const city of cities){
+     await getCwaWeather(city);
    }
 
-  })());
+   const queue=[...courses];
+   const workers=[];
+   let fetchCount=0;
 
+   for(let i=0;i<DECISION.max_concurrent_fetch;i++){
+
+     workers.push((async()=>{
+
+       while(queue.length){
+
+         const c=queue.shift();
+         let data = await fetchWeather(c.lat,c.lon);
+
+         if(data?.hourly?.time){
+
+           weatherCache[c.name]=[];
+
+           const dates=[
+             ...new Set(
+               data.hourly.time.map(t=>t.substring(0,10))
+             )
+           ];
+
+           const cwa = await getCwaWeather(c.city);
+           const stationRain = getNearbyRain(c.lat,c.lon);
+
+           for(let d=0;d<dates.length;d++){
+
+             const date=dates[d];
+
+             const avg=(arr,key)=>{
+               if(!arr.length || !data.hourly[key]) return 0;
+               const value =
+                 arr.reduce((s,i)=> s + (Number(data.hourly[key][i]) || 0),0) / arr.length;
+               return Math.round(value * 100) / 100;
+             };
+
+             const maxVal=(arr,key)=>{
+               if(!arr.length || !data.hourly[key]) return 0;
+               let v = 0;
+               arr.forEach(i=>{
+                 const val = Number(data.hourly[key][i]) || 0;
+                 if(val > v) v = val;
+               });
+               return Math.round(v * 100) / 100;
+             };
+
+             const morningIndex=
+               data.hourly.time
+               .map((t,i)=>{
+                 const h=parseInt(t.substring(11,13));
+                 return t.startsWith(date) && h>=8 && h<12 ? i : null;
+               })
+               .filter(i=>i!==null);
+
+             const afternoonIndex=
+               data.hourly.time
+               .map((t,i)=>{
+                 const h=parseInt(t.substring(11,13));
+                 return t.startsWith(date) && h>=12 && h<18 ? i : null;
+               })
+               .filter(i=>i!==null);
+
+             if(!morningIndex.length && !afternoonIndex.length){
+               continue;
+             }
+
+             const today = getTodayLocal();
+
+             const popMorning = maxVal(morningIndex,"precipitation_probability");
+             let rainMorning = avg(morningIndex,"precipitation");
+             const rainHoursMorning =
+               morningIndex.filter(i => (Number(data.hourly.precipitation?.[i]) || 0) > 0.1).length;
+
+             if(date===today){
+               rainMorning = rainMorning * 0.8 + stationRain * 0.2;
+               if(stationRain > 0.2){
+                 rainMorning = Math.max(rainMorning, stationRain * 0.25);
+               }
+             }
+
+             const tempMorning=avg(morningIndex,"apparent_temperature");
+             const windspeed = avg(morningIndex,"windspeed_10m");
+             const gust = avg(morningIndex,"windgusts_10m");
+             const windMorning =
+               Math.round((((windspeed*0.65) + (gust*0.35))/3.6 * 0.9) * 100) / 100;
+
+             const popAfternoon=maxVal(afternoonIndex,"precipitation_probability");
+             let rainAfternoon = avg(afternoonIndex,"precipitation");
+             const rainHoursAfternoon =
+               afternoonIndex.filter(i => (Number(data.hourly.precipitation?.[i]) || 0) > 0.1).length;
+
+             if(date===today){
+               rainAfternoon = rainAfternoon * 0.8 + stationRain * 0.2;
+               if(stationRain > 0.2){
+                 rainAfternoon = Math.max(rainAfternoon, stationRain * 0.25);
+               }
+             }
+
+             const tempAfternoon=avg(afternoonIndex,"apparent_temperature");
+             const windspeedA = avg(afternoonIndex,"windspeed_10m");
+             const gustA = avg(afternoonIndex,"windgusts_10m");
+             const windAfternoon =
+               Math.round((((windspeedA*0.65) + (gustA*0.35))/3.6 * 0.9) * 100) / 100;
+
+             const morningMerged =
+               ensembleWeather(
+                 {pop:popMorning,rain:rainMorning,temp:tempMorning},
+                 cwa
+               );
+
+             const afternoonMerged =
+               ensembleWeather(
+                 {pop:popAfternoon,rain:rainAfternoon,temp:tempAfternoon},
+                 cwa
+               );
+
+             const finalPopMorning = morningMerged.pop;
+             const finalRainMorning = Math.round(morningMerged.rain * 100) / 100;
+             const finalTempMorning = morningMerged.temp;
+
+             const finalPopAfternoon = afternoonMerged.pop;
+             const finalRainAfternoon = Math.round(afternoonMerged.rain * 100) / 100;
+             const finalTempAfternoon = afternoonMerged.temp;
+
+             const morningScore =
+               calculateGCI(
+                 finalPopMorning,
+                 finalRainMorning,
+                 finalTempMorning,
+                 windMorning,
+                 rainHoursMorning
+               );
+
+             const afternoonScore =
+               calculateGCI(
+                 finalPopAfternoon,
+                 finalRainAfternoon,
+                 finalTempAfternoon,
+                 windAfternoon,
+                 rainHoursAfternoon
+               );
+
+             weatherCache[c.name].push({
+               date,
+               nowcast: rainNowcast(c.lat,c.lon,date,data),
+               popMorning:finalPopMorning,
+               radarRain: stationRain,
+               rainMorning:finalRainMorning,
+               tempMorning:finalTempMorning,
+               windMorning,
+
+               popAfternoon:finalPopAfternoon,
+               rainAfternoon:finalRainAfternoon,
+               tempAfternoon:finalTempAfternoon,
+               windAfternoon,
+
+               morningScore,
+               afternoonScore,
+               morning:gciLight(morningScore),
+               afternoon:gciLight(afternoonScore)
+             });
+           }
+         }
+
+         fetchCount++;
+         if(mapProgressEl) mapProgressEl.innerText = fetchCount;
+
+         if(fetchCount % 3 === 0){
+           renderCourses();
+           renderMap();
+         }
+       }
+
+     })());
+   }
+
+   await Promise.all(workers);
+
+   renderCourses();
+   buildRanking();
+   renderDecisionCenter();
+   renderMap();
+   persistForecastSnapshot();
+
+ }finally{
+   if(mapLoadingEl) mapLoadingEl.style.display="none";
+   isLoadingAll = false;
  }
-
- await Promise.all(workers);
-
-renderCourses();
-buildRanking();
-renderDecisionCenter();
-
-document.getElementById("mapLoading").style.display="none";
-} finally {
- isLoadingAll = false;
-}
 }
 
 function toggleWeekTrend(el){
@@ -3080,9 +2952,10 @@ if(markers.length){
 }
 }
 
+initMap();
+
 document.addEventListener("DOMContentLoaded", async function(){
 
-  initMap();
   await loadAll();
   updateMapStatus();
 
