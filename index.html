@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta property="og:title" content="全台高爾夫天氣決策中心 V2.2 - GCI 2.0 決策引擎">
-<meta property="og:description" content="V2.2 GCI 2.0 決策引擎升級版！整合 ECMWF 全球預報與中央氣象署即時雨量，採用非線性風力懲罰、草地濕度模擬、降雨型態精準判讀、雷擊風險評估，精確預測全台 54 座球場最佳打球時段。">
+<meta property="og:title" content="全台高爾夫天氣決策中心 V2.4.3 - GCI 2.0 決策引擎">
+<meta property="og:description" content="V2.4.3 GCI 2.0 決策引擎升級版！整合 ECMWF 全球預報與中央氣象署即時雨量，採用非線性風力懲罰、草地濕度模擬、降雨型態精準判讀、雷擊風險評估，精確預測全台 59 座球場最佳打球時段。">
 <meta property="og:type" content="website">
 <meta property="og:image" content="https://live.staticflickr.com/65535/55139494433_69a2977501_b.jpg">
 <meta name="twitter:card" content="summary_large_image">
-<title>全台高爾夫天氣決策中心 V2.2 - GCI 2.0 決策引擎</title>
+<title>全台高爾夫天氣決策中心 V2.4.3 - GCI 2.0 決策引擎</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -1189,8 +1189,9 @@ body {
     <div class="header-meta">
       <div class="header-pill">ECMWF <b>全球預報</b></div>
       <div class="header-pill">CWA <b>即時雨量</b></div>
-      <div class="header-pill"><b>45</b> 座球場</div>
+      <div class="header-pill"><b>59</b> 座球場</div>
       <div class="header-pill">GCI <b>V2.0</b></div>
+      <div class="header-pill">開發者 <b>皇帝大科技</b></div>
     </div>
   </div>
 </div>
@@ -1204,7 +1205,7 @@ body {
       <div class="map-status" id="mapStatus">地圖顯示：今日 / 早球</div>
       <div class="map-loading-badge" id="mapLoading">
         <span class="spinner" style="width:12px;height:12px;border-width:2px;"></span>
-        載入中 <span id="mapProgress">0</span>/45
+        載入中 <span id="mapProgress">0</span>/59
       </div>
     </div>
     <div id="weatherMap"></div>
@@ -1589,7 +1590,7 @@ function closeModal(){
   document.getElementById("scoreModal").style.display = "none";
 }
 
-/* ===== V2.3 專業分析版：扣分分解與場地預警邏輯 ===== */
+/* ===== V2.4.3 專業分析版：扣分分解與場地預警邏輯 ===== */
 function calculateScorePenalties(pop, rain, temp, wind, score) {
   let penalties = { wind: 0, rain: 0, temp: 0, total: 100 - score };
   if (wind > 10) {
@@ -1959,7 +1960,7 @@ const courses=[
 {region:"桃竹苗",name:"龍潭高爾夫球場",city:"桃園市",district:"龍潭區",address:"325桃園市龍潭區民生路439巷130號",lat:24.844171454557483,lon:121.2221166319787},
 {region:"桃竹苗",name:"揚昇高爾夫鄉村俱樂部",city:"桃園市",district:"楊梅區",address:"32652桃園市楊梅區楊昇路256號",lat:24.880567327458493,lon:121.15708008465798},
 {region:"桃竹苗",name:"楊梅高爾夫球場",city:"桃園市",district:"楊梅區",address:"桃園市楊梅區東流里崩坡路1號",lat:24.90826,lon:121.17633},
-{region:"桃竹苗",name:"長安高爾夫球場",city:"新竹縣",district:"湖口鄉",address:"新竹縣湖口鄉北窩路376號",lat:24.90378,lon:121.12486},
+
 {region:"桃竹苗",name:"再興高爾夫球場",city:"新竹縣",district:"湖口鄉",address:"303新竹縣湖口鄉再興路350號",lat:24.883657556441133,lon:121.08730842643314},
 {region:"桃竹苗",name:"新竹（新豐）高爾夫球場",city:"新竹縣",district:"新豐鄉",address:"304新竹縣新豐鄉新豐路100號",lat:24.912,lon:121.02},
 {region:"桃竹苗",name:"立益高爾夫球場",city:"新竹縣",district:"關西鎮",address:"306新竹縣關西鎮55號",lat:24.78339243271613,lon:121.19580921109112},
@@ -1976,7 +1977,7 @@ const courses=[
 {region:"中彰投",name:"南峰高爾夫球場",city:"南投縣",district:"南投市",address:"南投縣南投市鳳山路18號",lat:23.94534,lon:120.65513},
 {region:"中彰投",name:"彰化高爾夫球場",city:"彰化縣",district:"彰化市",address:"彰化縣彰化市大埔路2巷101號",lat:24.05292,lon:120.55806},
 {region:"雲嘉南",name:"棕梠湖（東洋）高爾夫球場",city:"嘉義縣",district:"番路鄉",address:"602嘉義縣番路鄉第三農場24號",lat:23.4680352275906,lon:120.53389917985322},
-{region:"雲嘉南",name:"嘉義高爾夫球場",city:"嘉義市",district:"東區",address:"嘉義市東區東洋新村1號",lat:23.48624,lon:120.48534},
+{region:"雲嘉南",name:"嘉南高爾夫球場",city:"臺南市",district:"官田區",address:"臺南市官田區社子里六雙21號",lat:23.20138,lon:120.37555},
 {region:"雲嘉南",name:"斑芝花高爾夫俱樂部",city:"臺南市",district:"東山區",address:"733臺南市東山區斑芝花坑39號",lat:23.286747396981596,lon:120.45025227245918},
 {region:"雲嘉南",name:"台南高爾夫球場",city:"臺南市",district:"新化區",address:"712臺南市新化區100號",lat:23.03676875828575,lon:120.34153678410414},
 {region:"雲嘉南",name:"南一高爾夫球場",city:"臺南市",district:"關廟區",address:"718臺南市關廟區長榮街500號",lat:22.91254164680255,lon:120.33070584916922},
@@ -1988,8 +1989,16 @@ const courses=[
 {region:"高屏",name:"山湖觀高爾夫球場",city:"屏東縣",district:"高樹鄉",address:"906屏東縣高樹鄉中正路190號",lat:22.731170728184388,lon:120.63193848780116},
 {region:"花東",name:"礁溪高爾夫球場",city:"宜蘭縣",district:"礁溪鄉",address:"262宜蘭縣礁溪鄉林尾路156號",lat:24.825152536234288,lon:121.73993434177513},
 {region:"花東",name:"花蓮高爾夫球場",city:"花蓮縣",district:"花蓮市",address:"970花蓮縣花蓮市化道路120號",lat:23.997956028847813,lon:121.62714717061067},
-{region:"花東",name:"台東高爾夫球場",city:"台東縣",district:"卑南鄉",address:"台東縣卑南鄉賓朗村賓朗路488號",lat:22.79826,lon:121.11634}
-];
+{region:"花東",name:"台東高爾夫球場",city:"台東縣",district:"卑南鄉",address:"台東縣卑南鄉賓朗村賓朗路488號",lat:22.79826,lon:121.11634},
+  
+  
+  {region:"中彰投",name:"台中高爾夫球場",city:"臺中市",district:"大雅區",address:"428台中市大雅區通山路46號",lat:24.21835,lon:120.60801},
+  {region:"中彰投",name:"台豐高爾夫俱樂部",city:"彰化縣",district:"大村鄉",address:"515彰化縣大村鄉學府路77號",lat:24.00167,lon:120.59528},
+  {region:"中彰投",name:"松柏嶺高爾夫球場",city:"南投縣",district:"名間鄉",address:"551南投縣名間鄉炭寮村崁頂巷36之1號",lat:23.83444,lon:120.64833},
+  {region:"高屏",name:"海軍左營高爾夫球場",city:"高雄市",district:"左營區",address:"813高雄市左營區自勉里長壽路1號",lat:22.69583,lon:120.28333},
+  {region:"北北基",name:"國賓高爾夫球場",city:"新北市",district:"林口區",address:"244新北市林口區國賓路1號",lat:25.098,lon:121.315},
+  {region:"中彰投",name:"大雅高爾夫球場",city:"臺中市",district:"大雅區",address:"428台中市大雅區東大路二段46號",lat:24.218,lon:120.608},
+  {region:"高屏",name:"澄清湖高爾夫球場",city:"高雄市",district:"鳥松區",address:"833高雄市鳥松區大華里球場路270號",lat:22.657,lon:120.352},];
 
 /* ===== 導航 ===== */
 function navigateTo(lat,lon){
@@ -2393,7 +2402,7 @@ function initMap(){
   map.on("zoomend",renderMap);
 }
 
-const courseShortNames = {"翡翠高爾夫球場": "翡翠", "黃金海岸（北海）高爾夫球場": "北海", "濱海高爾夫俱樂部": "濱海", "台灣（老淡水）高爾夫球場": "老淡水", "大屯高爾夫球場": "大屯", "揮皇（新淡水）高爾夫球場": "揮皇", "北投國華高爾夫俱樂部": "國華", "林口高爾夫球場": "林口", "八里國際高爾夫球場": "八里", "美麗華高爾夫球場": "美麗華", "幸福高爾夫球場": "幸福", "東華高爾夫球場": "東華", "台北高爾夫球場": "台北", "統帥高爾夫球場": "統帥", "長庚高爾夫球場": "長庚", "東方高爾夫球場": "東方", "第一高爾夫球場": "第一", "永漢高爾夫球場": "永漢", "桃園高爾夫球場": "桃園", "大溪高爾夫球場": "大溪", "龍潭高爾夫球場": "龍潭", "揚昇高爾夫鄉村俱樂部": "揚昇", "楊梅高爾夫球場": "楊梅", "長安高爾夫球場": "長安", "再興高爾夫球場": "再興", "新竹（新豐）高爾夫球場": "新豐", "立益高爾夫球場": "立益", "旭陽高爾夫球場": "旭陽", "老爺關西高爾夫球場": "老爺", "山溪地高爾夫球場": "山溪地", "寶山高爾夫球場": "寶山", "皇家高爾夫球場": "皇家", "全國高爾夫球場": "全國", "清泉崗高爾夫球場": "清泉崗", "豐原高爾夫球場": "豐原", "台中國際高爾夫球場": "台中", "霧峰高爾夫球場": "霧峰", "南峰高爾夫球場": "南峰", "彰化高爾夫球場": "彰化", "棕梠湖（東洋）高爾夫球場": "棕梠湖", "嘉義高爾夫球場": "嘉義", "斑芝花高爾夫俱樂部": "斑芝花", "台南高爾夫球場": "台南", "南一高爾夫球場": "南一", "南寶高爾夫球場": "南寶", "大崗山高爾夫球場": "大崗山", "信誼高爾夫球場": "信誼", "觀音山高爾夫球場": "觀音山", "高雄高爾夫球場": "高雄", "山湖觀高爾夫球場": "山湖觀", "礁溪高爾夫球場": "礁溪", "花蓮高爾夫球場": "花蓮", "台東高爾夫球場": "台東"};
+const courseShortNames = {"翡翠高爾夫球場": "翡翠", "黃金海岸（北海）高爾夫球場": "北海", "濱海高爾夫俱樂部": "濱海", "台灣（老淡水）高爾夫球場": "老淡水", "大屯高爾夫球場": "大屯", "揮皇（新淡水）高爾夫球場": "揮皇", "北投國華高爾夫俱樂部": "國華", "林口高爾夫球場": "林口", "八里國際高爾夫球場": "八里", "美麗華高爾夫球場": "美麗華", "幸福高爾夫球場": "幸福", "東華高爾夫球場": "東華", "台北高爾夫球場": "台北", "統帥高爾夫球場": "統帥", "長庚高爾夫球場": "長庚", "東方高爾夫球場": "東方", "第一高爾夫球場": "第一", "永漢高爾夫球場": "永漢", "桃園高爾夫球場": "桃園", "大溪高爾夫球場": "大溪", "龍潭高爾夫球場": "龍潭", "揚昇高爾夫鄉村俱樂部": "揚昇", "楊梅高爾夫球場": "楊梅", "長安高爾夫球場": "長安", "再興高爾夫球場": "再興", "新竹（新豐）高爾夫球場": "新豐", "立益高爾夫球場": "立益", "旭陽高爾夫球場": "旭陽", "老爺關西高爾夫球場": "老爺", "山溪地高爾夫球場": "山溪地", "寶山高爾夫球場": "寶山", "皇家高爾夫球場": "皇家", "全國高爾夫球場": "全國", "清泉崗高爾夫球場": "清泉崗", "豐原高爾夫球場": "豐原", "台中國際高爾夫球場": "台中", "霧峰高爾夫球場": "霧峰", "南峰高爾夫球場": "南峰", "彰化高爾夫球場": "彰化", "棕梠湖（東洋）高爾夫球場": "棕梠湖", "嘉南高爾夫球場": "嘉南", "斑芝花高爾夫俱樂部": "斑芝花", "台南高爾夫球場": "台南", "南一高爾夫球場": "南一", "南寶高爾夫球場": "南寶", "大崗山高爾夫球場": "大崗山", "信誼高爾夫球場": "信誼", "觀音山高爾夫球場": "觀音山", "高雄高爾夫球場": "高雄", "山湖觀高爾夫球場": "山湖觀", "礁溪高爾夫球場": "礁溪", "花蓮高爾夫球場": "花蓮", "台東高爾夫球場": "台東"};
 
 function renderMap(){
   if(!map) return;
