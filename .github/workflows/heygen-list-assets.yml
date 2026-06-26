@@ -13,46 +13,89 @@ jobs:
         env:
           HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
         run: |
-          echo "=== Avatar Looks ==="
+          echo "=== Avatar Looks Raw Response ==="
           curl -sS -X GET "https://api.heygen.com/v3/avatars/looks" \
             -H "X-Api-Key: $HEYGEN_API_KEY" > avatar_looks.json
 
+          cat avatar_looks.json
+
+          echo ""
+          echo "=== Parsed Avatar Looks ==="
           python3 - <<'PY'
           import json
+
           with open("avatar_looks.json", "r", encoding="utf-8") as f:
-              data = json.load(f)
+              raw = json.load(f)
 
-          items = data.get("data", {}).get("avatar_looks", data.get("data", {}).get("items", data.get("data", [])))
-          if isinstance(items, dict):
-              items = list(items.values())
+          data = raw.get("data") if isinstance(raw, dict) else raw
 
-          for i, item in enumerate(items[:30], 1):
+          if isinstance(data, list):
+              items = data
+          elif isinstance(data, dict):
+              items = (
+                  data.get("avatar_looks")
+                  or data.get("items")
+                  or data.get("looks")
+                  or []
+              )
+          else:
+              items = []
+
+          print("total_items:", len(items))
+
+          for i, item in enumerate(items[:50], 1):
+              if not isinstance(item, dict):
+                  print(f"\n[{i}] non-dict item:", item)
+                  continue
+
               print(f"\n[{i}]")
               print("id:", item.get("id") or item.get("look_id") or item.get("avatar_id"))
               print("name:", item.get("name"))
+              print("avatar_name:", item.get("avatar_name"))
               print("group_id:", item.get("group_id") or item.get("avatar_group_id"))
               print("type:", item.get("avatar_type") or item.get("type"))
-              print("supported_api_engines:", item.get("supported_api_engines"))
+              print("preview:", item.get("preview_image_url") or item.get("preview_url"))
           PY
 
           echo ""
-          echo "=== Voices ==="
+          echo "=== Voices Raw Response ==="
           curl -sS -X GET "https://api.heygen.com/v3/voices" \
             -H "X-Api-Key: $HEYGEN_API_KEY" > voices.json
 
+          cat voices.json
+
+          echo ""
+          echo "=== Parsed Voices ==="
           python3 - <<'PY'
           import json
+
           with open("voices.json", "r", encoding="utf-8") as f:
-              data = json.load(f)
+              raw = json.load(f)
 
-          items = data.get("data", {}).get("voices", data.get("data", {}).get("items", data.get("data", [])))
-          if isinstance(items, dict):
-              items = list(items.values())
+          data = raw.get("data") if isinstance(raw, dict) else raw
 
-          for i, item in enumerate(items[:50], 1):
+          if isinstance(data, list):
+              items = data
+          elif isinstance(data, dict):
+              items = (
+                  data.get("voices")
+                  or data.get("items")
+                  or []
+              )
+          else:
+              items = []
+
+          print("total_items:", len(items))
+
+          for i, item in enumerate(items[:80], 1):
+              if not isinstance(item, dict):
+                  print(f"\n[{i}] non-dict item:", item)
+                  continue
+
               print(f"\n[{i}]")
               print("id:", item.get("id") or item.get("voice_id"))
               print("name:", item.get("name"))
               print("language:", item.get("language") or item.get("language_code"))
               print("gender:", item.get("gender"))
+              print("locale:", item.get("locale"))
           PY
