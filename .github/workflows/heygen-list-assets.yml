@@ -7,25 +7,40 @@ jobs:
   list_assets:
     runs-on: ubuntu-latest
     steps:
-      - name: List avatar looks (v3)
+      - name: List avatar looks (v3 all scopes)
         env:
           HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
         run: |
-          HTTP_STATUS=$(curl -sS "https://api.heygen.com/v3/avatars/looks?ownership=private" \
-            -H "x-api-key: ${HEYGEN_API_KEY}" \
-            -o /tmp/looks.json \
-            -w "%{http_code}")
+          for SCOPE in "private" "public" ""; do
+            if [ -z "${SCOPE}" ]; then
+              URL="https://api.heygen.com/v3/avatars/looks"
+              LABEL="all"
+            else
+              URL="https://api.heygen.com/v3/avatars/looks?ownership=${SCOPE}"
+              LABEL="${SCOPE}"
+            fi
 
-          echo "HeyGen API response:"
-          cat /tmp/looks.json
+            echo "--- Scope: ${LABEL} ---"
+            HTTP_STATUS=$(curl -sS "${URL}" \
+              -H "x-api-key: ${HEYGEN_API_KEY}" \
+              -o "/tmp/looks_${LABEL}.json" \
+              -w "%{http_code}")
 
-          if [ "${HTTP_STATUS}" -lt 200 ] || [ "${HTTP_STATUS}" -ge 300 ]; then
-            echo "List avatar looks failed with HTTP ${HTTP_STATUS}"
-            jq -r '.error // .message // "No structured error payload"' /tmp/looks.json
-            exit 1
-          fi
+            if [ "${HTTP_STATUS}" -lt 200 ] || [ "${HTTP_STATUS}" -ge 300 ]; then
+              echo "List avatar looks (${LABEL}) failed with HTTP ${HTTP_STATUS}"
+              jq -r '.error // .message // "No structured error payload"' "/tmp/looks_${LABEL}.json" || true
+              continue
+            fi
 
-          echo "Parsed Avatar Looks (id, name, status):"
-          jq -r '.data[]? | "\(.id)  \(.name)  \(.status)"' /tmp/looks.json
-          COUNT=$(jq -r '.data | length' /tmp/looks.json)
-          echo "Total count: ${COUNT}"
+            COUNT=$(jq -r '.data | length' "/tmp/looks_${LABEL}.json")
+            echo "Count: ${COUNT}"
+            if [ "${COUNT}" -eq 0 ]; then
+              echo "No items returned for ${LABEL}"
+              continue
+            fi
+            jq -r '.data[]? | "\(.id)  \(.name)  \(.status // "")  \(.avatar_type // .type // "")"' "/tmp/looks_${LABEL}.json"
+          done
+
+          echo "--- Summary (all merged) ---"
+          jq -s 'add | {data: map(.data // []) | add | unique_by(.id)}' /tmp/looks_private.json /tmp/looks_public.json /tmp/looks_all.json \
+            | jq -r '.data // [] | map("\(.id)  \(.name)  \(.status // "")") | .[]'
