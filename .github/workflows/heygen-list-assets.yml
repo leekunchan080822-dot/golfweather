@@ -1,0 +1,58 @@
+name: List HeyGen Assets
+
+on:
+  workflow_dispatch:
+
+jobs:
+  list-assets:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: List avatar looks and voices
+        shell: bash
+        env:
+          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+        run: |
+          echo "=== Avatar Looks ==="
+          curl -sS -X GET "https://api.heygen.com/v3/avatars/looks" \
+            -H "X-Api-Key: $HEYGEN_API_KEY" > avatar_looks.json
+
+          python3 - <<'PY'
+          import json
+          with open("avatar_looks.json", "r", encoding="utf-8") as f:
+              data = json.load(f)
+
+          items = data.get("data", {}).get("avatar_looks", data.get("data", {}).get("items", data.get("data", [])))
+          if isinstance(items, dict):
+              items = list(items.values())
+
+          for i, item in enumerate(items[:30], 1):
+              print(f"\n[{i}]")
+              print("id:", item.get("id") or item.get("look_id") or item.get("avatar_id"))
+              print("name:", item.get("name"))
+              print("group_id:", item.get("group_id") or item.get("avatar_group_id"))
+              print("type:", item.get("avatar_type") or item.get("type"))
+              print("supported_api_engines:", item.get("supported_api_engines"))
+          PY
+
+          echo ""
+          echo "=== Voices ==="
+          curl -sS -X GET "https://api.heygen.com/v3/voices" \
+            -H "X-Api-Key: $HEYGEN_API_KEY" > voices.json
+
+          python3 - <<'PY'
+          import json
+          with open("voices.json", "r", encoding="utf-8") as f:
+              data = json.load(f)
+
+          items = data.get("data", {}).get("voices", data.get("data", {}).get("items", data.get("data", [])))
+          if isinstance(items, dict):
+              items = list(items.values())
+
+          for i, item in enumerate(items[:50], 1):
+              print(f"\n[{i}]")
+              print("id:", item.get("id") or item.get("voice_id"))
+              print("name:", item.get("name"))
+              print("language:", item.get("language") or item.get("language_code"))
+              print("gender:", item.get("gender"))
+          PY
