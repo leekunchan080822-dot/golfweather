@@ -1,0 +1,239 @@
+name: 生成HeyGen影片（自動）
+
+on:
+  workflow_dispatch:
+    inputs:
+      brief:
+        description: 告訴我你要做的影片（請直接用一句話或幾句中文說明）
+        required: true
+        default: 幫我做一則10秒介紹影片
+      title:
+        description: 檔名（可選）
+        required: false
+        default: heygen-auto-video
+      avatar_id:
+        description: Avatar look id（可選，不填會使用 Secrets.HEYGEN_AVATAR_ID）
+        required: false
+        default: ""
+      dry_run:
+        description: true=只做預檢與授權/餘額檢查，不實際產生影片
+        required: false
+        default: "false"
+
+jobs:
+  auto_generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: 檢查必要金鑰
+        env:
+          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+          HEYGEN_VOICE_ID: ${{ secrets.HEYGEN_VOICE_ID }}
+          HEYGEN_AVATAR_ID: ${{ secrets.HEYGEN_AVATAR_ID }}
+          INPUT_AVATAR_ID: ${{ github.event.inputs.avatar_id }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+          BRIEF: ${{ github.event.inputs.brief }}
+        run: |
+          if [ -z "${HEYGEN_API_KEY}" ] || [ -z "${HEYGEN_VOICE_ID}" ]; then
+            echo "缺少 Secrets：HEYGEN_API_KEY 或 HEYGEN_VOICE_ID"
+            exit 1
+          fi
+
+          CLEAN_AVATAR_ID="$(printf '%s' "${INPUT_AVATAR_ID:-$HEYGEN_AVATAR_ID}" | tr -d '[:space:]')"
+          if [ -z "$CLEAN_AVATAR_ID" ]; then
+            echo "缺少 avatar_id：請在 Secrets.HEYGEN_AVATAR_ID 設定，或在輸入欄位提供。"
+            exit 1
+          fi
+
+          echo "ACTIVE_AVATAR_ID=$CLEAN_AVATAR_ID" >> "$GITHUB_ENV"
+          echo "VIDEO_TITLE=${{ github.event.inputs.title }}" >> "$GITHUB_ENV"
+          echo "BRIEF_TEXT=${BRIEF}" >> "$GITHUB_ENV"
+          echo "DRY_RUN_MODE=$DRY_RUN" >> "$GITHUB_ENV"
+
+      - name: 列出可用的 Avatar Looks 並驗證 ID
+        env:
+          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+          ACTIVE_AVATAR_ID: ${{ env.ACTIVE_AVATAR_ID }}
+        run: |
+          for SCOPE in "private" "public" ""; do
+            if [ -z "${SCOPE}" ]; then
+              URL="https://api.heygen.com/v3/avatars/looks"
+              LABEL="all"
+            else
+              URL="https://api.heygen.com/v3/avatars/looks?ownership=${SCOPE}"
+              LABEL="${SCOPE}"
+            fi
+
+            HTTP_STATUS=$(curl -sS "${URL}" \
+              -H "x-api-key: ${HEYGEN_API_KEY}" \
+              -o "/tmp/looks_${LABEL}.json" \
+              -w "%{http_code}")
+
+            if [ "${HTTP_STATUS}" -lt 200 ] || [ "${HTTP_STATUS}" -ge 300 ]; then
+              echo "Avatar looks 查詢失敗 (${LABEL}) HTTP ${HTTP_STATUS}"
+              jq -r '.error // .message // "No structured error payload"' "/tmp/looks_${LABEL}.json" || true
+              continue
+            fi
+
+            echo "--- ${LABEL} 項目 ---"
+            jq -r '.data[:10][] | "\(.id)  \(.name)  \(.status // "")  \(.avatar_type // .type // "")"' "/tmp/looks_${LABEL}.json"
+          done
+
+          jq -s 'map(.data // []) | add | unique_by(.id)' /tmp/looks_private.json /tmp/looks_public.json /tmp/looks_all.json \
+            > /tmp/all_looks_merged.json
+
+          MATCH_COUNT=$(jq -r --arg id "$ACTIVE_AVATAR_ID" '[.[] | select(.id==$id)] | length' /tmp/all_looks_merged.json)
+          if [ "$MATCH_COUNT" = "0" ]; then
+            echo "avatar_not_found: 沒有找到指定的 avatar_id"
+            echo "你使用的 avatar_id = $ACTIVE_AVATAR_ID"
+            echo "請在上方「可用清單」中複製任一可用 id"
+            exit 1
+          fi
+
+          echo "Avatar 驗證通過"
+          jq -r --arg id "$ACTIVE_AVATAR_ID" '.[] | select(.id==$id) | "\(.name) | \(.avatar_type // .type // "") | \(.status // \"\")"' /tmp/all_looks_merged.json
+
+      - name: 查詢 API 餘額（防止繼續卡在不足額度）
+        env:
+          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+        run: |
+          HTTP_STATUS=$(curl -sS "https://api.heygen.com/v3/users/me" \
+            -H "x-api-key: ${HEYGEN_API_KEY}" \
+            -o /tmp/user_me.json \
+            -w "%{http_code}")
+
+          if [ "${HTTP_STATUS}" -lt 200 ] || [ "${HTTP_STATUS}" -ge 300 ]; then
+            echo "wallet 查詢失敗，HTTP ${HTTP_STATUS}"
+            jq -r '.error // .message // "No structured error payload"' /tmp/user_me.json || true
+            echo "警告：仍繼續嘗試建立影片（有些帳號可能不回傳 wallet 結構）"
+          else
+            echo "=== users/me 原始回應 ==="
+            cat /tmp/user_me.json
+          fi
+
+      - name: 乾跑模式（只驗證流程）
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        run: |
+          echo "dry_run = true，已完成預檢與授權/資源驗證，本次不建立影片。"
+          exit 0
+
+      - name: 構建腳本與輸入（自動產生影片描述）
+        env:
+          BRIEF_TEXT: ${{ env.BRIEF_TEXT }}
+        run: |
+          SCRIPT_TEXT="${BRIEF_TEXT}"
+          echo "SCRIPT_TEXT=$SCRIPT_TEXT" >> "$GITHUB_ENV"
+          echo "FINAL_SCRIPT=$SCRIPT_TEXT" >> "$GITHUB_ENV"
+          echo "已自動生成腳本："
+          echo "$SCRIPT_TEXT"
+
+      - name: 建立影片（v3/videos）
+        id: create
+        env:
+          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+          HEYGEN_VOICE_ID: ${{ secrets.HEYGEN_VOICE_ID }}
+          HEYGEN_AVATAR_ID: ${{ env.ACTIVE_AVATAR_ID }}
+          FINAL_SCRIPT: ${{ env.FINAL_SCRIPT }}
+          VIDEO_TITLE: ${{ env.VIDEO_TITLE }}
+        run: |
+          if [ -z "$FINAL_SCRIPT" ]; then
+            echo "腳本為空，請重新填寫 brief。"
+            exit 1
+          fi
+
+          jq -n \
+            --arg type "avatar" \
+            --arg avatar_id "${HEYGEN_AVATAR_ID}" \
+            --arg script "${FINAL_SCRIPT}" \
+            --arg voice_id "${HEYGEN_VOICE_ID}" \
+            --arg title "${VIDEO_TITLE}" \
+            '{type:$type, avatar_id:$avatar_id, script:$script, voice_id:$voice_id, title:$title, resolution:"720p", aspect_ratio:"16:9"}' \
+            > /tmp/payload.json
+          echo "Create payload:"
+          cat /tmp/payload.json
+
+          HTTP_STATUS=$(curl -sS -X POST "https://api.heygen.com/v3/videos" \
+            -H "x-api-key: ${HEYGEN_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d @/tmp/payload.json \
+            -o /tmp/create_response.json \
+            -w "%{http_code}")
+
+          if [ "${HTTP_STATUS}" -lt 200 ] || [ "${HTTP_STATUS}" -ge 300 ]; then
+            echo "建立影片失敗，HTTP ${HTTP_STATUS}"
+            jq -r '.error // .message // .data.error // "No structured error payload"' /tmp/create_response.json
+            exit 1
+          fi
+
+          echo "HeyGen 回應："
+          cat /tmp/create_response.json
+
+          JOB_ID=$(jq -r '.data.video_id // .data.id // empty' /tmp/create_response.json || true)
+          if [ -z "$JOB_ID" ] || [ "$JOB_ID" = "null" ]; then
+            echo "沒有拿到 video_id，無法繼續。"
+            exit 1
+          fi
+
+          echo "video_id=${JOB_ID}" >> "$GITHUB_OUTPUT"
+          echo "影片建立完成，video_id=${JOB_ID}"
+
+      - name: 監控進度（v3/videos/{video_id}）
+        id: poll
+        env:
+          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+        run: |
+          VIDEO_ID="${{ steps.create.outputs.video_id }}"
+          for i in $(seq 1 40); do
+            HTTP_STATUS=$(curl -sS "https://api.heygen.com/v3/videos/${VIDEO_ID}" \
+              -H "x-api-key: ${HEYGEN_API_KEY}" \
+              -o /tmp/status.json \
+              -w "%{http_code}")
+
+            if [ "${HTTP_STATUS}" -lt 200 ] || [ "${HTTP_STATUS}" -ge 300 ]; then
+              echo "查詢進度失敗 HTTP ${HTTP_STATUS}"
+              jq -r '.error // .message // .data.error // "No structured error payload"' /tmp/status.json
+              exit 1
+            fi
+
+            STATUS=$(jq -r '.data.status // .status // "unknown"' /tmp/status.json || true)
+            VIDEO_URL=$(jq -r '.data.video_url // empty' /tmp/status.json || true)
+
+            echo "第 ${i} 次查詢：status=${STATUS}"
+
+            if [ "${STATUS}" = "completed" ]; then
+              if [ -z "${VIDEO_URL}" ] || [ "${VIDEO_URL}" = "null" ]; then
+                echo "完成但沒有 video_url"
+                exit 1
+              fi
+              echo "video_url=${VIDEO_URL}" >> "$GITHUB_OUTPUT"
+              echo "完成：${VIDEO_URL}"
+              exit 0
+            fi
+
+            if [ "${STATUS}" = "failed" ]; then
+              echo "影片建立失敗"
+              jq -r '.data.failure_message // .data.failure_code // .message // "No failure message"' /tmp/status.json
+              exit 1
+            fi
+
+            echo "未完成，10 秒後重試..."
+            sleep 10
+          done
+
+          echo "輪詢逾時（超過 40 次）"
+          exit 1
+
+      - name: 下載成片並上傳
+        if: ${{ steps.poll.outputs.video_url != '' }}
+        run: |
+          mkdir -p dist
+          FILENAME="${VIDEO_TITLE:-heygen-auto}.mp4"
+          curl -L "${{ steps.poll.outputs.video_url }}" -o "dist/${FILENAME}"
+          ls -lh dist
+          echo "output_file=dist/${FILENAME}" >> "$GITHUB_OUTPUT"
+
+      - name: 上傳成品
+        uses: actions/upload-artifact@v4
+        with:
+          name: heygen-auto-video
+          path: dist/
