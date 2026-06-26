@@ -11,20 +11,58 @@ on:
         description: Output title (optional)
         required: false
         default: heygen-autocreated
+      avatar_id:
+        description: Override avatar look id (optional)
+        required: false
+        default: ""
 
 jobs:
   generate:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      - name: Prepare and validate inputs
+        env:
+          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+          SECRET_AVATAR_ID: ${{ secrets.HEYGEN_AVATAR_ID }}
+          INPUT_AVATAR_ID: ${{ github.event.inputs.avatar_id }}
+        run: |
+          ACTIVE_AVATAR_ID="${INPUT_AVATAR_ID:-$SECRET_AVATAR_ID}"
+          if [ -z "$ACTIVE_AVATAR_ID" ]; then
+            echo "Missing avatar id: set secrets.HEYGEN_AVATAR_ID or workflow input avatar_id."
+            exit 1
+          fi
+          echo "USE_AVATAR_ID=$ACTIVE_AVATAR_ID" >> "$GITHUB_ENV"
+
+          HTTP_STATUS=$(curl -sS "https://api.heygen.com/v3/avatars/looks?ownership=private" \
+            -H "x-api-key: ${HEYGEN_API_KEY}" \
+            -o /tmp/looks.json \
+            -w "%{http_code}")
+
+          if [ "${HTTP_STATUS}" -lt 200 ] || [ "${HTTP_STATUS}" -ge 300 ]; then
+            echo "Precheck failed to list avatar looks: HTTP ${HTTP_STATUS}"
+            jq -r '.error // .message // "No structured error payload"' /tmp/looks.json || true
+            exit 1
+          fi
+
+          MATCH_COUNT=$(jq -r --arg id "$ACTIVE_AVATAR_ID" '[.data[] | select(.id==$id)] | length' /tmp/looks.json)
+          if [ "$MATCH_COUNT" = "0" ]; then
+            echo "avatar_not_found: The avatar_id in use is not in your private avatar looks."
+            echo "Active avatar_id: $ACTIVE_AVATAR_ID"
+            echo "--- Available private avatar looks (first 20) ---"
+            jq -r '.data[:20][] | "\(.id) \t \(.name)\t\(.avatar_type // .type // "")\t\(.status // "")"' /tmp/looks.json
+            exit 1
+          fi
+          echo "Selected avatar look found in private looks."
+          jq -r --arg id "$ACTIVE_AVATAR_ID" '.data[] | select(.id==$id) | "selected_look: \(.name) | type=\(.avatar_type // .type // "") | engines=\(.supported_api_engines // "")"' /tmp/looks.json
+
       - name: Validate required secrets
         env:
           HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
           HEYGEN_VOICE_ID: ${{ secrets.HEYGEN_VOICE_ID }}
-          HEYGEN_AVATAR_ID: ${{ secrets.HEYGEN_AVATAR_ID }}
         run: |
-          if [ -z "${HEYGEN_API_KEY}" ] || [ -z "${HEYGEN_VOICE_ID}" ] || [ -z "${HEYGEN_AVATAR_ID}" ]; then
-            echo "Set HEYGEN_API_KEY, HEYGEN_VOICE_ID, HEYGEN_AVATAR_ID in Repo > Settings > Secrets and variables > Actions."
+          if [ -z "${HEYGEN_API_KEY}" ] || [ -z "${HEYGEN_VOICE_ID}" ]; then
+            echo "Set HEYGEN_API_KEY and HEYGEN_VOICE_ID in Repo > Settings > Secrets and variables > Actions."
             exit 1
           fi
 
@@ -33,7 +71,7 @@ jobs:
         env:
           HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
           HEYGEN_VOICE_ID: ${{ secrets.HEYGEN_VOICE_ID }}
-          HEYGEN_AVATAR_ID: ${{ secrets.HEYGEN_AVATAR_ID }}
+          HEYGEN_AVATAR_ID: ${{ env.USE_AVATAR_ID }}
           SCRIPT_TEXT: ${{ github.event.inputs.script_text }}
           VIDEO_TITLE: ${{ github.event.inputs.title }}
         run: |
