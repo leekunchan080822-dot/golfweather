@@ -14,36 +14,124 @@ on:
         type: string
 
 jobs:
-  check-secrets:
+  generate-video:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check required inputs
-        run: |
-          echo "Title: ${{ inputs.title }}"
-          echo "Script text length: ${#SCRIPT_TEXT}"
-        env:
-          SCRIPT_TEXT: ${{ inputs.script_text }}
-
-      - name: Check HeyGen secrets
-        run: |
-          if [ -z "$HEYGEN_API_KEY" ]; then
-            echo "Missing HEYGEN_API_KEY"
-            exit 1
-          fi
-
-          if [ -z "$HEYGEN_VOICE_ID" ]; then
-            echo "Missing HEYGEN_VOICE_ID"
-            exit 1
-          fi
-
-          if [ -z "$HEYGEN_AVATAR_ID" ]; then
-            echo "Missing HEYGEN_AVATAR_ID"
-            exit 1
-          fi
-
-          echo "All HeyGen secrets are set."
+      - name: Create HeyGen video
+        id: create_video
+        shell: bash
         env:
           HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
-          HEYGEN_VOICE_ID: ${{ secrets.HEYGEN_VOICE_ID }}
           HEYGEN_AVATAR_ID: ${{ secrets.HEYGEN_AVATAR_ID }}
+          HEYGEN_VOICE_ID: ${{ secrets.HEYGEN_VOICE_ID }}
+          SCRIPT_TEXT: ${{ inputs.script_text }}
+          VIDEO_TITLE: ${{ inputs.title }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+
+          payload = {
+              "video_inputs": [
+                  {
+                      "character": {
+                          "type": "avatar",
+                          "avatar_id": os.environ["HEYGEN_AVATAR_ID"],
+                          "scale": 1.0
+                      },
+                      "voice": {
+                          "type": "text",
+                          "input_text": os.environ["SCRIPT_TEXT"],
+                          "voice_id": os.environ["HEYGEN_VOICE_ID"]
+                      },
+                      "background": {
+                          "type": "color",
+                          "value": "#ffffff"
+                      }
+                  }
+              ],
+              "dimension": {
+                  "width": 1280,
+                  "height": 720
+              },
+              "caption": False,
+              "title": os.environ["VIDEO_TITLE"]
+          }
+
+          with open("payload.json", "w", encoding="utf-8") as f:
+              json.dump(payload, f, ensure_ascii=False)
+          PY
+
+          echo "Sending request to HeyGen..."
+          RESPONSE=$(curl -sS -X POST "https://api.heygen.com/v2/video/generate" \
+            -H "X-Api-Key: $HEYGEN_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d @payload.json)
+
+          echo "$RESPONSE" > create_response.json
+          cat create_response.json
+
+          VIDEO_ID=$(python3 - <<'PY'
+          import json
+          with open("create_response.json", "r", encoding="utf-8") as f:
+              data = json.load(f)
+          print(data.get("data", {}).get("video_id", ""))
+          PY
+          )
+
+          if [ -z "$VIDEO_ID" ]; then
+            echo "Failed to create video. No video_id returned."
+            exit 1
+          fi
+
+          echo "video_id=$VIDEO_ID" >> "$GITHUB_OUTPUT"
+          echo "Created video_id: $VIDEO_ID"
+
+      - name: Wait for HeyGen video URL
+        shell: bash
+        env:
+          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+          VIDEO_ID: ${{ steps.create_video.outputs.video_id }}
+        run: |
+          echo "Checking video status..."
+          for i in {1..60}; do
+            RESPONSE=$(curl -sS -X GET "https://api.heygen.com/v1/video_status.get?video_id=$VIDEO_ID" \
+              -H "X-Api-Key: $HEYGEN_API_KEY")
+
+            echo "$RESPONSE" > status_response.json
+            cat status_response.json
+
+            STATUS=$(python3 - <<'PY'
+          import json
+          with open("status_response.json", "r", encoding="utf-8") as f:
+              data = json.load(f)
+          print(data.get("data", {}).get("status", ""))
+          PY
+          )
+
+            VIDEO_URL=$(python3 - <<'PY'
+          import json
+          with open("status_response.json", "r", encoding="utf-8") as f:
+              data = json.load(f)
+          print(data.get("data", {}).get("video_url", ""))
+          PY
+          )
+
+            if [ "$STATUS" = "completed" ] && [ -n "$VIDEO_URL" ]; then
+              echo ""
+              echo "VIDEO_READY_URL=$VIDEO_URL"
+              echo ""
+              exit 0
+            fi
+
+            if [ "$STATUS" = "failed" ]; then
+              echo "HeyGen video generation failed."
+              exit 1
+            fi
+
+            echo "Not ready yet. Attempt $i/60. Waiting 20 seconds..."
+            sleep 20
+          done
+
+          echo "Timed out waiting for video."
+          exit 1
