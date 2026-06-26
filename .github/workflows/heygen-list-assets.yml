@@ -42,5 +42,5 @@ jobs:
           done
 
           echo "--- Summary (all merged) ---"
-          jq -s 'add | {data: map(.data // []) | add | unique_by(.id)}' /tmp/looks_private.json /tmp/looks_public.json /tmp/looks_all.json \
-            | jq -r '.data // [] | map("\(.id)  \(.name)  \(.status // "")") | .[]'
+          jq -s 'map(.data // []) | add | unique_by(.id)' /tmp/looks_private.json /tmp/looks_public.json /tmp/looks_all.json \
+            | jq -r '.[] | "\(.id)  \(.name)  \(.status // "")"'
