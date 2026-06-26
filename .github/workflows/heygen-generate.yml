@@ -27,7 +27,7 @@ jobs:
           SECRET_AVATAR_ID: ${{ secrets.HEYGEN_AVATAR_ID }}
           INPUT_AVATAR_ID: ${{ github.event.inputs.avatar_id }}
         run: |
-          ACTIVE_AVATAR_ID="${INPUT_AVATAR_ID:-$SECRET_AVATAR_ID}"
+          ACTIVE_AVATAR_ID="$(printf '%s' "${INPUT_AVATAR_ID:-$SECRET_AVATAR_ID}" | tr -d '[:space:]')"
           if [ -z "$ACTIVE_AVATAR_ID" ]; then
             echo "Missing avatar id: set secrets.HEYGEN_AVATAR_ID or workflow input avatar_id."
             exit 1
@@ -36,25 +36,36 @@ jobs:
 
           HTTP_STATUS=$(curl -sS "https://api.heygen.com/v3/avatars/looks?ownership=private" \
             -H "x-api-key: ${HEYGEN_API_KEY}" \
-            -o /tmp/looks.json \
+            -o /tmp/private_looks.json \
+            -w "%{http_code}")
+
+          if [ "${HTTP_STATUS}" -lt 200 ] || [ "${HTTP_STATUS}" -ge 300 ]; then
+            echo "Precheck failed to list private avatar looks: HTTP ${HTTP_STATUS}"
+            jq -r '.error // .message // "No structured error payload"' /tmp/private_looks.json || true
+            exit 1
+          fi
+
+          HTTP_STATUS=$(curl -sS "https://api.heygen.com/v3/avatars/looks" \
+            -H "x-api-key: ${HEYGEN_API_KEY}" \
+            -o /tmp/all_looks.json \
             -w "%{http_code}")
 
           if [ "${HTTP_STATUS}" -lt 200 ] || [ "${HTTP_STATUS}" -ge 300 ]; then
             echo "Precheck failed to list avatar looks: HTTP ${HTTP_STATUS}"
-            jq -r '.error // .message // "No structured error payload"' /tmp/looks.json || true
+            jq -r '.error // .message // "No structured error payload"' /tmp/all_looks.json || true
             exit 1
           fi
 
-          MATCH_COUNT=$(jq -r --arg id "$ACTIVE_AVATAR_ID" '[.data[] | select(.id==$id)] | length' /tmp/looks.json)
+          MATCH_COUNT=$(jq -r --arg id "$ACTIVE_AVATAR_ID" '[.data[] | select(.id==$id)] | length' /tmp/all_looks.json)
           if [ "$MATCH_COUNT" = "0" ]; then
-            echo "avatar_not_found: The avatar_id in use is not in your private avatar looks."
+            echo "avatar_not_found: The avatar_id in use is not in your available avatar looks."
             echo "Active avatar_id: $ACTIVE_AVATAR_ID"
-            echo "--- Available private avatar looks (first 20) ---"
-            jq -r '.data[:20][] | "\(.id) \t \(.name)\t\(.avatar_type // .type // "")\t\(.status // "")"' /tmp/looks.json
+            echo "--- Available avatar looks (first 20) ---"
+            jq -r '.data[:20][] | "\(.id) \t \(.name)\t\(.avatar_type // .type // "")\t\(.status // \"\")"' /tmp/all_looks.json
             exit 1
           fi
-          echo "Selected avatar look found in private looks."
-          jq -r --arg id "$ACTIVE_AVATAR_ID" '.data[] | select(.id==$id) | "selected_look: \(.name) | type=\(.avatar_type // .type // "") | engines=\(.supported_api_engines // "")"' /tmp/looks.json
+          echo "Selected avatar look found in available looks."
+          jq -r --arg id "$ACTIVE_AVATAR_ID" '.data[] | select(.id==$id) | "selected_look: \(.name) | type=\(.avatar_type // .type // \"\") | engines=\(.supported_api_engines // \"\")"' /tmp/all_looks.json
 
       - name: Validate required secrets
         env:
