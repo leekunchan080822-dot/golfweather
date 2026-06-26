@@ -65,7 +65,7 @@ jobs:
             exit 1
           fi
           echo "Selected avatar look found in available looks."
-          jq -r --arg id "$ACTIVE_AVATAR_ID" '.data[] | select(.id==$id) | "selected_look: \(.name) | type=\(.avatar_type // .type // \"\") | engines=\(.supported_api_engines // \"\")"' /tmp/all_looks.json
+          jq -r --arg id "$ACTIVE_AVATAR_ID" '.data[] | select(.id==$id) | "selected_look: " + .name + " | type=" + (.avatar_type // .type // "") + " | engines=" + ((.supported_api_engines // "")|tostring)' /tmp/all_looks.json
 
       - name: Validate required secrets
         env:
