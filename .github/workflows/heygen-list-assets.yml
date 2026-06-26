@@ -1,101 +1,31 @@
-name: List HeyGen Assets
+﻿name: List HeyGen Avatar Looks
 
 on:
   workflow_dispatch:
 
 jobs:
-  list-assets:
+  list_assets:
     runs-on: ubuntu-latest
-
     steps:
-      - name: List avatar looks and voices
-        shell: bash
+      - name: List avatar looks (v3)
         env:
           HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
         run: |
-          echo "=== Avatar Looks Raw Response ==="
-          curl -sS -X GET "https://api.heygen.com/v3/avatars/looks" \
-            -H "X-Api-Key: $HEYGEN_API_KEY" > avatar_looks.json
+          HTTP_STATUS=$(curl -sS "https://api.heygen.com/v3/avatars/looks?ownership=private" \
+            -H "x-api-key: ${HEYGEN_API_KEY}" \
+            -o /tmp/looks.json \
+            -w "%{http_code}")
 
-          cat avatar_looks.json
+          echo "HeyGen API response:"
+          cat /tmp/looks.json
 
-          echo ""
-          echo "=== Parsed Avatar Looks ==="
-          python3 - <<'PY'
-          import json
+          if [ "${HTTP_STATUS}" -lt 200 ] || [ "${HTTP_STATUS}" -ge 300 ]; then
+            echo "List avatar looks failed with HTTP ${HTTP_STATUS}"
+            jq -r '.error // .message // "No structured error payload"' /tmp/looks.json
+            exit 1
+          fi
 
-          with open("avatar_looks.json", "r", encoding="utf-8") as f:
-              raw = json.load(f)
-
-          data = raw.get("data") if isinstance(raw, dict) else raw
-
-          if isinstance(data, list):
-              items = data
-          elif isinstance(data, dict):
-              items = (
-                  data.get("avatar_looks")
-                  or data.get("items")
-                  or data.get("looks")
-                  or []
-              )
-          else:
-              items = []
-
-          print("total_items:", len(items))
-
-          for i, item in enumerate(items[:50], 1):
-              if not isinstance(item, dict):
-                  print(f"\n[{i}] non-dict item:", item)
-                  continue
-
-              print(f"\n[{i}]")
-              print("id:", item.get("id") or item.get("look_id") or item.get("avatar_id"))
-              print("name:", item.get("name"))
-              print("avatar_name:", item.get("avatar_name"))
-              print("group_id:", item.get("group_id") or item.get("avatar_group_id"))
-              print("type:", item.get("avatar_type") or item.get("type"))
-              print("preview:", item.get("preview_image_url") or item.get("preview_url"))
-          PY
-
-          echo ""
-          echo "=== Voices Raw Response ==="
-          curl -sS -X GET "https://api.heygen.com/v3/voices" \
-            -H "X-Api-Key: $HEYGEN_API_KEY" > voices.json
-
-          cat voices.json
-
-          echo ""
-          echo "=== Parsed Voices ==="
-          python3 - <<'PY'
-          import json
-
-          with open("voices.json", "r", encoding="utf-8") as f:
-              raw = json.load(f)
-
-          data = raw.get("data") if isinstance(raw, dict) else raw
-
-          if isinstance(data, list):
-              items = data
-          elif isinstance(data, dict):
-              items = (
-                  data.get("voices")
-                  or data.get("items")
-                  or []
-              )
-          else:
-              items = []
-
-          print("total_items:", len(items))
-
-          for i, item in enumerate(items[:80], 1):
-              if not isinstance(item, dict):
-                  print(f"\n[{i}] non-dict item:", item)
-                  continue
-
-              print(f"\n[{i}]")
-              print("id:", item.get("id") or item.get("voice_id"))
-              print("name:", item.get("name"))
-              print("language:", item.get("language") or item.get("language_code"))
-              print("gender:", item.get("gender"))
-              print("locale:", item.get("locale"))
-          PY
+          echo "Parsed Avatar Looks (id, name, status):"
+          jq -r '.data[]? | "\(.id)  \(.name)  \(.status)"' /tmp/looks.json
+          COUNT=$(jq -r '.data | length' /tmp/looks.json)
+          echo "Total count: ${COUNT}"

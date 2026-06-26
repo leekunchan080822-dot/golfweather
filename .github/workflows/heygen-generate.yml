@@ -1,137 +1,141 @@
-name: Generate HeyGen Video
+﻿name: Generate HeyGen Video
 
 on:
   workflow_dispatch:
     inputs:
       script_text:
-        description: "影片要朗讀的文字"
+        description: Text script for HeyGen
         required: true
-        type: string
+        default: Please enter the script you want to convert to a video.
       title:
-        description: "影片名稱"
-        required: true
-        default: "test-1"
-        type: string
+        description: Output title (optional)
+        required: false
+        default: heygen-autocreated
 
 jobs:
-  generate-video:
+  generate:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 20
     steps:
-      - name: Create HeyGen video
-        id: create_video
-        shell: bash
+      - name: Validate required secrets
         env:
           HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
-          HEYGEN_AVATAR_ID: ${{ secrets.HEYGEN_AVATAR_ID }}
           HEYGEN_VOICE_ID: ${{ secrets.HEYGEN_VOICE_ID }}
-          SCRIPT_TEXT: ${{ inputs.script_text }}
-          VIDEO_TITLE: ${{ inputs.title }}
+          HEYGEN_AVATAR_ID: ${{ secrets.HEYGEN_AVATAR_ID }}
         run: |
-          python3 - <<'PY'
-          import json, os
-
-          payload = {
-              "video_inputs": [
-                  {
-                      "character": {
-                          "type": "avatar",
-                          "avatar_id": os.environ["HEYGEN_AVATAR_ID"],
-                          "scale": 1.0
-                      },
-                      "voice": {
-                          "type": "text",
-                          "input_text": os.environ["SCRIPT_TEXT"],
-                          "voice_id": os.environ["HEYGEN_VOICE_ID"]
-                      },
-                      "background": {
-                          "type": "color",
-                          "value": "#ffffff"
-                      }
-                  }
-              ],
-              "dimension": {
-                  "width": 1280,
-                  "height": 720
-              },
-              "caption": False,
-              "title": os.environ["VIDEO_TITLE"]
-          }
-
-          with open("payload.json", "w", encoding="utf-8") as f:
-              json.dump(payload, f, ensure_ascii=False)
-          PY
-
-          echo "Sending request to HeyGen..."
-          RESPONSE=$(curl -sS -X POST "https://api.heygen.com/v2/video/generate" \
-            -H "X-Api-Key: $HEYGEN_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d @payload.json)
-
-          echo "$RESPONSE" > create_response.json
-          cat create_response.json
-
-          VIDEO_ID=$(python3 - <<'PY'
-          import json
-          with open("create_response.json", "r", encoding="utf-8") as f:
-              data = json.load(f)
-          print(data.get("data", {}).get("video_id", ""))
-          PY
-          )
-
-          if [ -z "$VIDEO_ID" ]; then
-            echo "Failed to create video. No video_id returned."
+          if [ -z "${HEYGEN_API_KEY}" ] || [ -z "${HEYGEN_VOICE_ID}" ] || [ -z "${HEYGEN_AVATAR_ID}" ]; then
+            echo "Set HEYGEN_API_KEY, HEYGEN_VOICE_ID, HEYGEN_AVATAR_ID in Repo > Settings > Secrets and variables > Actions."
             exit 1
           fi
 
-          echo "video_id=$VIDEO_ID" >> "$GITHUB_OUTPUT"
-          echo "Created video_id: $VIDEO_ID"
-
-      - name: Wait for HeyGen video URL
-        shell: bash
+      - name: Create HeyGen video (v3/videos)
+        id: create
         env:
           HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
-          VIDEO_ID: ${{ steps.create_video.outputs.video_id }}
+          HEYGEN_VOICE_ID: ${{ secrets.HEYGEN_VOICE_ID }}
+          HEYGEN_AVATAR_ID: ${{ secrets.HEYGEN_AVATAR_ID }}
+          SCRIPT_TEXT: ${{ github.event.inputs.script_text }}
+          VIDEO_TITLE: ${{ github.event.inputs.title }}
         run: |
-          echo "Checking video status..."
-          for i in {1..60}; do
-            RESPONSE=$(curl -sS -X GET "https://api.heygen.com/v1/video_status.get?video_id=$VIDEO_ID" \
-              -H "X-Api-Key: $HEYGEN_API_KEY")
+          VIDEO_TITLE="${VIDEO_TITLE:-heygen-autocreated}"
+          jq -n \
+            --arg type "avatar" \
+            --arg avatar_id "${HEYGEN_AVATAR_ID}" \
+            --arg script "${SCRIPT_TEXT}" \
+            --arg voice_id "${HEYGEN_VOICE_ID}" \
+            --arg title "${VIDEO_TITLE}" \
+            '{type:$type, avatar_id:$avatar_id, script:$script, voice_id:$voice_id, title:$title, resolution:"1080p", aspect_ratio:"16:9"}' \
+            > /tmp/payload.json
+          echo "Create payload:"
+          cat /tmp/payload.json
 
-            echo "$RESPONSE" > status_response.json
-            cat status_response.json
+          HTTP_STATUS=$(curl -sS -X POST "https://api.heygen.com/v3/videos" \
+            -H "x-api-key: ${HEYGEN_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d @/tmp/payload.json \
+            -o /tmp/create_response.json \
+            -w "%{http_code}")
 
-            STATUS=$(python3 - <<'PY'
-          import json
-          with open("status_response.json", "r", encoding="utf-8") as f:
-              data = json.load(f)
-          print(data.get("data", {}).get("status", ""))
-          PY
-          )
+          echo "HeyGen create response:"
+          cat /tmp/create_response.json
 
-            VIDEO_URL=$(python3 - <<'PY'
-          import json
-          with open("status_response.json", "r", encoding="utf-8") as f:
-              data = json.load(f)
-          print(data.get("data", {}).get("video_url", ""))
-          PY
-          )
+          if [ "${HTTP_STATUS}" -lt 200 ] || [ "${HTTP_STATUS}" -ge 300 ]; then
+            echo "Create video failed with HTTP ${HTTP_STATUS}"
+            jq -r '.error // .message // .data.error // "No structured error payload"' /tmp/create_response.json
+            exit 1
+          fi
 
-            if [ "$STATUS" = "completed" ] && [ -n "$VIDEO_URL" ]; then
-              echo ""
-              echo "VIDEO_READY_URL=$VIDEO_URL"
-              echo ""
-              exit 0
-            fi
+          JOB_ID=$(jq -r '.data.video_id // .data.id // empty' /tmp/create_response.json || true)
+          if [ -z "${JOB_ID}" ] || [ "${JOB_ID}" = "null" ]; then
+            echo "No video_id returned. Full payload:"
+            cat /tmp/create_response.json
+            exit 1
+          fi
 
-            if [ "$STATUS" = "failed" ]; then
-              echo "HeyGen video generation failed."
+          echo "video_id=${JOB_ID}" >> "$GITHUB_OUTPUT"
+          echo "Created video_id=${JOB_ID}"
+
+      - name: Poll HeyGen status (v3/videos/{video_id})
+        id: poll
+        env:
+          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+        run: |
+          VIDEO_ID="${{ steps.create.outputs.video_id }}"
+          for i in $(seq 1 30); do
+            HTTP_STATUS=$(curl -sS "https://api.heygen.com/v3/videos/${VIDEO_ID}" \
+              -H "x-api-key: ${HEYGEN_API_KEY}" \
+              -o /tmp/status.json \
+              -w "%{http_code}")
+
+            echo "Status response (attempt ${i}):"
+            cat /tmp/status.json
+
+            if [ "${HTTP_STATUS}" -lt 200 ] || [ "${HTTP_STATUS}" -ge 300 ]; then
+              echo "Get status failed with HTTP ${HTTP_STATUS}"
+              jq -r '.error // .message // .data.error // "No structured error payload"' /tmp/status.json
               exit 1
             fi
 
-            echo "Not ready yet. Attempt $i/60. Waiting 20 seconds..."
-            sleep 20
-          done
+            STATUS=$(jq -r '.data.status // .status // "unknown"' /tmp/status.json || true)
+            if [ "${STATUS}" = "completed" ]; then
+              VIDEO_URL=$(jq -r '.data.video_url // empty' /tmp/status.json || true)
+              if [ -z "${VIDEO_URL}" ] || [ "${VIDEO_URL}" = "null" ]; then
+                echo "Status is completed but video_url is missing"
+                exit 1
+              fi
+              echo "video_url=${VIDEO_URL}" >> "$GITHUB_OUTPUT"
+              echo "Video is ready: ${VIDEO_URL}"
+              break
+            fi
 
-          echo "Timed out waiting for video."
+            if [ "${STATUS}" = "failed" ]; then
+              echo "Video generation failed"
+              jq -r '.data.failure_message // .data.failure_code // .message // "No failure message"' /tmp/status.json
+              exit 1
+            fi
+
+            echo "Video status: ${STATUS}, retry in 10 seconds..."
+            sleep 10
+          done
+          echo "Polling timeout after 30 attempts without completion."
           exit 1
+
+      - name: Download and upload result
+        id: download
+        run: |
+          VIDEO_URL="${{ steps.poll.outputs.video_url }}"
+          mkdir -p dist
+          if [ -z "${VIDEO_URL}" ] || [ "${VIDEO_URL}" = "null" ]; then
+            echo "Video URL not found after polling."
+            exit 1
+          fi
+          FILENAME="${{ github.event.inputs.title }}.mp4"
+          curl -L "${VIDEO_URL}" -o "dist/${FILENAME}"
+          ls -lh dist
+          echo "output_file=dist/${FILENAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: heygen-video
+          path: dist/
