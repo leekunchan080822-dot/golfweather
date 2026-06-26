@@ -1,0 +1,49 @@
+name: Generate HeyGen Video
+
+on:
+  workflow_dispatch:
+    inputs:
+      script_text:
+        description: "影片要朗讀的文字"
+        required: true
+        type: string
+      title:
+        description: "影片名稱"
+        required: true
+        default: "test-1"
+        type: string
+
+jobs:
+  check-secrets:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check required inputs
+        run: |
+          echo "Title: ${{ inputs.title }}"
+          echo "Script text length: ${#SCRIPT_TEXT}"
+        env:
+          SCRIPT_TEXT: ${{ inputs.script_text }}
+
+      - name: Check HeyGen secrets
+        run: |
+          if [ -z "$HEYGEN_API_KEY" ]; then
+            echo "Missing HEYGEN_API_KEY"
+            exit 1
+          fi
+
+          if [ -z "$HEYGEN_VOICE_ID" ]; then
+            echo "Missing HEYGEN_VOICE_ID"
+            exit 1
+          fi
+
+          if [ -z "$HEYGEN_AVATAR_ID" ]; then
+            echo "Missing HEYGEN_AVATAR_ID"
+            exit 1
+          fi
+
+          echo "All HeyGen secrets are set."
+        env:
+          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+          HEYGEN_VOICE_ID: ${{ secrets.HEYGEN_VOICE_ID }}
+          HEYGEN_AVATAR_ID: ${{ secrets.HEYGEN_AVATAR_ID }}
